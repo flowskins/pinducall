@@ -36,6 +36,22 @@ function sanitizeDisplayName(raw) {
   return name;
 }
 
+/**
+ * Avatar de um participante: { emoji, color }. A cor vira CSS no cliente, então
+ * só aceitamos hexadecimal (#rrggbb) — nada de gradiente arbitrário ou url().
+ * O emoji é curto e vai como texto puro. null volta às iniciais.
+ */
+function sanitizeAvatar(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const emoji = String(raw.emoji ?? '')
+    .replace(/[\u0000-\u001f\u007f\s]/g, '')
+    .slice(0, 8);
+  const cor = String(raw.color ?? '');
+  const color = /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : null;
+  if (!emoji && !color) return null;
+  return { emoji, color };
+}
+
 function sanitizeRoomId(raw) {
   return idDeSala(raw ?? config.defaultRoom) || idDeSala(config.defaultRoom) || 'geral';
 }
@@ -308,6 +324,7 @@ const handlers = {
     const { peer, room } = session.requirePeer();
     if (typeof data.micMuted === 'boolean') peer.state.micMuted = data.micMuted;
     if (typeof data.deafened === 'boolean') peer.state.deafened = data.deafened;
+    if ('avatar' in data) peer.state.avatar = sanitizeAvatar(data.avatar);
     room.broadcast('peerUpdated', { peerId: peer.id, state: peer.state });
     return { state: peer.state };
   },

@@ -528,7 +528,7 @@ async function main() {
       );
       check(
         'a lista do Bob marca a Alice como compartilhando',
-        (await bob.page.innerHTML('#peer-list')).includes('peer__badge--sharing'),
+        (await bob.page.innerHTML('#peer-list')).includes('peer__rec'),
       );
 
       // --- Janela que o Windows não consegue capturar ---------------------
@@ -847,6 +847,16 @@ async function main() {
     await alice.page.click('#btn-settings');
     await alice.page.waitForSelector('#settings-modal:not(.hidden)', { timeout: 5000 });
     check('modal de configurações abre', true);
+
+    // As configurações agora vêm em abas; a de Perfil abre primeiro com o avatar.
+    check(
+      'a aba Perfil traz o seletor de avatar',
+      (await alice.page.locator('#avatar-emojis .pick-emoji').count()) > 1
+        && (await alice.page.locator('#avatar-cores .pick-cor').count()) >= 1,
+    );
+
+    // Áudio numa aba própria.
+    await alice.page.click('.set-tab[data-set="audio"]');
     check(
       'lista de microfones foi preenchida',
       (await alice.page.locator('#select-input option').count()) >= 1,
@@ -856,8 +866,9 @@ async function main() {
       (await alice.page.locator('#select-output option').count()) >= 1,
     );
 
-    // Modo de captura: é o que resolve jogo aparecendo preto, então precisa
-    // estar visível, começar no que o app está usando e valer ao trocar.
+    // Modo de captura: fica na aba "Tela". É o que resolve jogo aparecendo
+    // preto, então precisa aparecer, começar no que o app usa e valer ao trocar.
+    await alice.page.click('.set-tab[data-set="tela"]');
     check(
       'o modo de captura aparece nas configurações',
       await alice.page.isVisible('#select-captura'),

@@ -25,6 +25,8 @@ const DEFAULTS = {
   noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
+  // Avatar escolhido: { emoji, color } ou null (usa iniciais + cor do nome).
+  avatar: null,
   screenFrameRate: 30,
   // 'moderno' | 'automatico' | 'antigo' — ver MODOS_DE_CAPTURA no main.js.
   modoCaptura: 'moderno',

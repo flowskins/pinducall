@@ -26,6 +26,8 @@ export class Peer {
       deafened: false,
       screenSharing: false,
       speaking: false,
+      // { emoji, color } escolhido pela pessoa; null = usa iniciais + cor do id.
+      avatar: null,
     };
 
     this.closed = false;

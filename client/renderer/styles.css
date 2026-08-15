@@ -324,18 +324,14 @@ body::before {
   grid-template-columns: var(--sidebar-w) 1fr var(--chat-w);
 }
 
+/* "Ocultar chat": recolhe a coluna direita inteira (Tibia + chat) e a tela
+   compartilhada preenche o espaço. Só a barra da esquerda continua. */
 .screen--room.chat-hidden {
   grid-template-columns: var(--sidebar-w) 1fr;
 }
 
-/* "Ocultar chat" some só com o chat: o painel do Tibia fica e ocupa a coluna. */
-.screen--room.chat-hidden #chat-panel {
+.screen--room.chat-hidden .side {
   display: none;
-}
-
-.screen--room.chat-hidden .tibia {
-  height: auto;
-  flex: 1 1 auto;
 }
 
 /* Coluna da direita: painel em cima, chat embaixo. */
@@ -1361,12 +1357,53 @@ select.field__input option:checked {
 .peer__name {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-dim);
   font-size: 14px;
   transition: color 0.18s, text-shadow 0.18s;
+}
+
+.peer__name-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sinal REC na frente do nick de quem compartilha a tela. */
+.peer__rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 6px 1px 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: rgba(255, 60, 76, 0.16);
+  border: 1px solid rgba(255, 60, 76, 0.5);
+}
+
+.peer__rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff3c4c;
+  box-shadow: 0 0 7px #ff3c4c;
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+/* A linha de quem compartilha fica clicável (leva a tela ao destaque). */
+.peer--sharing {
+  cursor: pointer;
+}
+
+.peer--sharing:hover {
+  background: rgba(255, 60, 76, 0.1);
 }
 
 .peer--speaking {
@@ -1422,6 +1459,24 @@ select.field__input option:checked {
   width: 31px;
   height: 31px;
   font-size: 11px;
+}
+
+.avatar--lg {
+  width: 58px;
+  height: 58px;
+  font-size: 22px;
+  border-radius: 16px;
+}
+
+/* Quando o avatar é um emoji, o texto fica maior e sem a cor escura das iniciais. */
+.avatar--emoji {
+  color: #fff;
+  font-weight: 400;
+  font-size: 1.35em;
+}
+
+.avatar--lg.avatar--emoji {
+  font-size: 30px;
 }
 
 .peer:hover .avatar {
@@ -2056,6 +2111,123 @@ select.field__input option:checked {
   display: flex;
   flex-direction: column;
   gap: 13px;
+}
+
+/* ---------- Configurações em abas ---------- */
+
+.set-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid rgba(177, 77, 255, 0.18);
+  margin-bottom: 4px;
+}
+
+.set-tab {
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.set-tab:hover {
+  color: var(--text);
+}
+
+.set-tab--active {
+  color: var(--neon);
+  border-bottom-color: var(--neon);
+}
+
+.set-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+/* ---------- Avatar (aba Perfil) ---------- */
+
+.avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar-edit__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.avatar-edit__info .linkish {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.picker-emojis {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.pick-emoji {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft, rgba(255, 255, 255, 0.03));
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s, background 0.15s;
+}
+
+.pick-emoji--none {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.pick-emoji:hover {
+  transform: translateY(-2px);
+  border-color: var(--violet);
+}
+
+.pick-emoji.picked {
+  border-color: var(--neon);
+  background: rgba(51, 255, 51, 0.12);
+  box-shadow: 0 0 0 1px var(--neon);
+}
+
+.picker-cores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.pick-cor {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.15s;
+}
+
+.pick-cor:hover {
+  transform: scale(1.12);
+}
+
+.pick-cor.picked {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--neon);
 }
 
 .modal__footer {

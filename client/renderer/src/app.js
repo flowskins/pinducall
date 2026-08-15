@@ -116,6 +116,12 @@ const el = {
   micMeterFill: $('mic-meter-fill'),
   appVersion: $('app-version'),
 
+  // Perfil / avatar nas configurações
+  avatarPreview: $('avatar-preview'),
+  avatarEmojis: $('avatar-emojis'),
+  avatarCores: $('avatar-cores'),
+  btnAvatarReset: $('btn-avatar-reset'),
+
   toasts: $('toasts'),
 };
 
@@ -188,6 +194,30 @@ function colorFor(id) {
 /** Cor sólida para o nome no chat (gradiente não serve para texto). */
 function authorColorFor(id) {
   return AUTHOR_COLORS[hashOf(id) % AUTHOR_COLORS.length];
+}
+
+// Opções do seletor de avatar (aba Perfil nas configurações).
+const AVATAR_EMOJIS = ['🐉', '⚔️', '🛡️', '🏹', '🔥', '💀', '👑', '🧙', '🐺', '🦁', '🐸', '🍺', '🎧', '😎', '👾', '🤖'];
+const AVATAR_PALETTE = ['#33ff33', '#00c2ff', '#b14dff', '#ff5c6c', '#ffb020', '#ff7bd5', '#2ee6a6', '#9aa4b2'];
+
+/** Versão escurecida de um hex, para o avatar custom virar um gradiente sutil. */
+function corEscura(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, ((n >> 16) & 255) - 55);
+  const g = Math.max(0, ((n >> 8) & 255) - 55);
+  const b = Math.max(0, (n & 255) - 55);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** Pinta um .avatar com o avatar escolhido; sem avatar, cai nas iniciais + cor do id. */
+function aplicarAvatar(elemento, { id, name, avatar }) {
+  const emoji = avatar?.emoji;
+  const cor = avatar?.color;
+  elemento.textContent = emoji || initials(name);
+  elemento.classList.toggle('avatar--emoji', Boolean(emoji));
+  elemento.style.background = cor
+    ? `linear-gradient(135deg, ${cor}, ${corEscura(cor)})`
+    : colorFor(id);
 }
 
 function toast(message, kind = 'info', ms = 5000) {
@@ -460,6 +490,7 @@ async function entrarNaSala({ roomId, password, convite, nome }) {
     displayName,
     password,
     convite,
+    avatar: state.settings?.avatar ?? null,
     audio: {
       echoCancellation: el.inputEcho.checked,
       noiseSuppression: el.inputNoise.checked,
@@ -759,8 +790,12 @@ room.on('joined', (result) => {
 
   el.roomTitle.textContent = result.roomName || `#${result.roomId}`;
   el.selfName.textContent = state.selfName;
-  el.selfAvatar.textContent = initials(state.selfName);
-  el.selfAvatar.style.background = colorFor(result.peerId);
+  state.selfPeerId = result.peerId;
+  aplicarAvatar(el.selfAvatar, {
+    id: result.peerId,
+    name: state.selfName,
+    avatar: state.settings?.avatar,
+  });
 
   el.chatMessages.innerHTML = '';
   state.lastChatAuthor = null;
@@ -1019,6 +1054,18 @@ function removeTilesOfPeer(peerId) {
   }
 }
 
+/** Destaca a tela compartilhada de uma pessoa (clicando nela na lista). */
+function focarTelaDoPeer(peerId) {
+  const tile = [...state.tiles.values()].find((t) => t.peerId === peerId);
+  if (!tile) {
+    toast('A tela dessa pessoa ainda está chegando — tenta de novo num instante.', 'info');
+    return;
+  }
+  state.focusedTile = tile.consumerId;
+  updateStageLayout();
+  tile.element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
 function toggleFocus(consumerId) {
   state.focusedTile = state.focusedTile === consumerId ? null : consumerId;
   updateStageLayout();
@@ -1088,22 +1135,25 @@ function renderPeers() {
 
     const avatar = document.createElement('div');
     avatar.className = 'avatar';
-    avatar.style.background = colorFor(peer.id);
-    avatar.textContent = initials(peer.displayName);
+    aplicarAvatar(avatar, { id: peer.id, name: peer.displayName, avatar: peer.state?.avatar });
 
     const name = document.createElement('div');
     name.className = 'peer__name';
-    name.textContent = peer.displayName;
+
+    // Sinal REC na frente do nick de quem está compartilhando a tela.
+    if (peer.state?.screenSharing) {
+      const rec = document.createElement('span');
+      rec.className = 'peer__rec';
+      rec.innerHTML = '<span class="peer__rec-dot"></span>REC';
+      name.append(rec);
+    }
+    const nomeTexto = document.createElement('span');
+    nomeTexto.className = 'peer__name-txt';
+    nomeTexto.textContent = peer.displayName;
+    name.append(nomeTexto);
 
     const badges = document.createElement('div');
     badges.className = 'peer__badges';
-    if (peer.state?.screenSharing) {
-      const badge = document.createElement('span');
-      badge.className = 'peer__badge--sharing';
-      badge.title = 'Compartilhando a tela';
-      badge.innerHTML = icons.screenShare;
-      badges.append(badge);
-    }
     if (peer.state?.deafened) {
       const badge = document.createElement('span');
       badge.className = 'peer__badge--muted';
@@ -1119,6 +1169,14 @@ function renderPeers() {
     }
 
     item.append(avatar, name, badges);
+
+    // Quem compartilha vira clicável: leva a tela dessa pessoa para o destaque.
+    if (peer.state?.screenSharing) {
+      item.classList.add('peer--sharing');
+      item.title = 'Compartilhando a tela — clique para assistir';
+      item.addEventListener('click', () => focarTelaDoPeer(peer.id));
+    }
+
     el.peerList.append(item);
   }
 
@@ -1754,8 +1812,107 @@ for (const button of document.querySelectorAll('.icon-btn[data-close]')) {
 
 el.btnSettings.addEventListener('click', async () => {
   await refreshDeviceLists();
+  desenharSeletorAvatar();
   el.settingsModal.classList.remove('hidden');
 });
+
+// ----------------------------------------------------------------------------
+// Configurações em abas
+// ----------------------------------------------------------------------------
+
+for (const aba of document.querySelectorAll('.set-tab')) {
+  aba.addEventListener('click', () => {
+    const alvo = aba.dataset.set;
+    for (const t of document.querySelectorAll('.set-tab')) {
+      t.classList.toggle('set-tab--active', t === aba);
+    }
+    for (const painel of document.querySelectorAll('.set-panel')) {
+      painel.classList.toggle('hidden', painel.id !== `set-${alvo}`);
+    }
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Avatar (aba Perfil)
+// ----------------------------------------------------------------------------
+
+/** Avatar atual em edição, lido das preferências. */
+function avatarAtual() {
+  return state.settings?.avatar ?? null;
+}
+
+/** Redesenha o preview + destaca o emoji e a cor selecionados. */
+function pintarPreviewAvatar() {
+  const av = avatarAtual();
+  aplicarAvatar(el.avatarPreview, {
+    id: state.selfPeerId ?? state.selfName ?? 'eu',
+    name: state.selfName || el.inputName?.value || 'Você',
+    avatar: av,
+  });
+  for (const b of el.avatarEmojis.children) {
+    b.classList.toggle('picked', b.dataset.emoji === (av?.emoji ?? ''));
+  }
+  for (const b of el.avatarCores.children) {
+    b.classList.toggle('picked', b.dataset.cor === (av?.color ?? ''));
+  }
+}
+
+/** Aplica uma mudança no avatar: salva, repinta e avisa a sala. */
+async function mudarAvatar(mudanca) {
+  const atual = avatarAtual() ?? { emoji: '', color: '' };
+  let novo = { emoji: atual.emoji ?? '', color: atual.color ?? '', ...mudanca };
+  if (!novo.emoji && !novo.color) novo = null;
+
+  state.settings.avatar = novo;
+  await window.pinducall.settings.set({ avatar: novo });
+
+  pintarPreviewAvatar();
+  // Repinta o meu próprio avatar na barra de baixo, na hora.
+  if (state.selfPeerId) {
+    aplicarAvatar(el.selfAvatar, { id: state.selfPeerId, name: state.selfName, avatar: novo });
+  }
+  // Avisa todo mundo na sala (se já estiver conectado).
+  if (state.connected) room.setAvatar(novo).catch(() => {});
+}
+
+/** Monta os botões de emoji e de cor uma única vez, e sincroniza a seleção. */
+function desenharSeletorAvatar() {
+  if (!el.avatarEmojis.dataset.pronto) {
+    // Opção "sem emoji" (iniciais) + os emojis.
+    const semEmoji = document.createElement('button');
+    semEmoji.type = 'button';
+    semEmoji.className = 'pick-emoji pick-emoji--none';
+    semEmoji.dataset.emoji = '';
+    semEmoji.title = 'Iniciais do nome';
+    semEmoji.textContent = 'Aa';
+    semEmoji.addEventListener('click', () => mudarAvatar({ emoji: '' }));
+    el.avatarEmojis.append(semEmoji);
+
+    for (const emoji of AVATAR_EMOJIS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick-emoji';
+      b.dataset.emoji = emoji;
+      b.textContent = emoji;
+      b.addEventListener('click', () => mudarAvatar({ emoji }));
+      el.avatarEmojis.append(b);
+    }
+
+    for (const cor of AVATAR_PALETTE) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'pick-cor';
+      b.dataset.cor = cor;
+      b.style.background = cor;
+      b.addEventListener('click', () => mudarAvatar({ color: cor }));
+      el.avatarCores.append(b);
+    }
+
+    el.btnAvatarReset.addEventListener('click', () => mudarAvatar({ emoji: '', color: '' }));
+    el.avatarEmojis.dataset.pronto = '1';
+  }
+  pintarPreviewAvatar();
+}
 
 async function refreshDeviceLists() {
   let devices = [];

@@ -101,8 +101,9 @@ export class RoomClient extends Emitter {
    * Entra na sala. Com `convite` a senha não é usada: o token já diz ao
    * servidor qual é a sala e que a pessoa pode entrar.
    */
-  async join({ url, roomId, displayName, password, convite, audio = {} }) {
+  async join({ url, roomId, displayName, password, convite, audio = {}, avatar = null }) {
     this.audioConstraints = audio;
+    this.state.avatar = avatar;
 
     await this.signaling.connect(url);
 
@@ -123,6 +124,11 @@ export class RoomClient extends Emitter {
 
     this.peerId = result.peerId;
     this.roomId = result.roomId;
+
+    // Manda o avatar escolhido para os outros verem (o join nasce sem ele).
+    if (this.state.avatar) {
+      this.signaling.request('setState', { avatar: this.state.avatar }).catch(() => {});
+    }
 
     await this.#createSendTransport();
     await this.#createRecvTransport();
@@ -295,6 +301,13 @@ export class RoomClient extends Emitter {
     if (deafened && !this.state.micMuted) await this.setMicMuted(true);
 
     await this.signaling.request('setState', { deafened }).catch(() => {});
+    this.emit('localState', { ...this.state });
+  }
+
+  /** Avatar próprio: { emoji, color } ou null. Vai para todos os participantes. */
+  async setAvatar(avatar) {
+    this.state.avatar = avatar;
+    await this.signaling.request('setState', { avatar }).catch(() => {});
     this.emit('localState', { ...this.state });
   }
 

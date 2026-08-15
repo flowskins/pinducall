@@ -304,69 +304,101 @@
           <button class="icon-btn" data-close="settings-modal" title="Fechar"></button>
         </header>
 
-        <div class="modal__body">
-          <label class="field">
-            <span class="field__label">Microfone</span>
-            <select id="select-input" class="field__input"></select>
-          </label>
-
-          <div class="meter">
-            <div id="mic-meter-fill" class="meter__fill"></div>
-          </div>
-          <span class="field__hint">Fale para testar: a barra deve se mexer.</span>
-
-          <label class="field">
-            <span class="field__label">Saída de áudio</span>
-            <select id="select-output" class="field__input"></select>
-          </label>
-
-          <label class="field">
-            <span class="field__label">Volume geral</span>
-            <input id="input-volume" class="range" type="range" min="0" max="100" value="100" />
-          </label>
-
-          <div class="field__label" style="margin-top: 8px">Processamento do microfone</div>
-          <label class="checkbox">
-            <input id="input-echo" type="checkbox" checked />
-            <span>Cancelamento de eco</span>
-          </label>
-          <label class="checkbox">
-            <input id="input-noise" type="checkbox" checked />
-            <span>Supressão de ruido</span>
-          </label>
-          <label class="checkbox">
-            <input id="input-gain" type="checkbox" checked />
-            <span>Ganho automático</span>
-          </label>
-
-          <label class="field" style="margin-top: 14px">
-            <span class="field__label">Modo de captura de tela</span>
-            <select id="select-captura" class="field__input"></select>
-            <span class="field__hint">
-              Se o jogo aparece preto para a galera, experimente outro modo — o app reabre
-              sozinho para valer. O <b>Moderno</b> é o que enxerga jogo em DirectX.
-            </span>
-          </label>
-
-          <div class="field__label" style="margin-top: 14px">OBS automático (para o Tibia)</div>
-          <p class="field__hint" style="margin-top: 0">
-            Deixe ligado o Servidor WebSocket do OBS (Ferramentas → Configurações do Servidor
-            WebSocket) e repita aqui a porta e a senha dele.
-          </p>
-          <div class="field-row">
-            <label class="field">
-              <span class="field__label">Porta do OBS</span>
-              <input id="input-obs-porta" class="field__input" type="number" min="1" max="65535" placeholder="4455" />
-            </label>
-            <label class="field">
-              <span class="field__label">Senha do OBS</span>
-              <input id="input-obs-senha" class="field__input" type="password" placeholder="(a que você definiu no OBS)" />
-            </label>
+        <div class="modal__body settings">
+          <div class="set-tabs">
+            <button class="set-tab set-tab--active" data-set="perfil" type="button">Perfil</button>
+            <button class="set-tab" data-set="audio" type="button">Áudio</button>
+            <button class="set-tab" data-set="tela" type="button">Tela</button>
+            <button class="set-tab" data-set="obs" type="button">OBS</button>
           </div>
 
-          <p class="field__hint" style="margin-top: 12px">
-            Mudanças de microfone valem na hora. As demais valem na próxima conexão.
-          </p>
+          <!-- ---------- Perfil ---------- -->
+          <div id="set-perfil" class="set-panel">
+            <div class="avatar-edit">
+              <div id="avatar-preview" class="avatar avatar--lg">--</div>
+              <div class="avatar-edit__info">
+                <div class="field__label">Seu avatar</div>
+                <span class="field__hint">Escolha um emoji e uma cor — todo mundo na sala vê.</span>
+                <button id="btn-avatar-reset" class="linkish" type="button">voltar às iniciais</button>
+              </div>
+            </div>
+
+            <div class="field__label">Emoji</div>
+            <div id="avatar-emojis" class="picker-emojis"></div>
+
+            <div class="field__label" style="margin-top: 14px">Cor</div>
+            <div id="avatar-cores" class="picker-cores"></div>
+          </div>
+
+          <!-- ---------- Áudio ---------- -->
+          <div id="set-audio" class="set-panel hidden">
+            <label class="field">
+              <span class="field__label">Microfone</span>
+              <select id="select-input" class="field__input"></select>
+            </label>
+
+            <div class="meter">
+              <div id="mic-meter-fill" class="meter__fill"></div>
+            </div>
+            <span class="field__hint">Fale para testar: a barra deve se mexer.</span>
+
+            <label class="field">
+              <span class="field__label">Saída de áudio</span>
+              <select id="select-output" class="field__input"></select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Volume geral</span>
+              <input id="input-volume" class="range" type="range" min="0" max="100" value="100" />
+            </label>
+
+            <div class="field__label" style="margin-top: 8px">Processamento do microfone</div>
+            <label class="checkbox">
+              <input id="input-echo" type="checkbox" checked />
+              <span>Cancelamento de eco</span>
+            </label>
+            <label class="checkbox">
+              <input id="input-noise" type="checkbox" checked />
+              <span>Supressão de ruido</span>
+            </label>
+            <label class="checkbox">
+              <input id="input-gain" type="checkbox" checked />
+              <span>Ganho automático</span>
+            </label>
+            <p class="field__hint" style="margin-top: 12px">Mudanças de microfone valem na hora.</p>
+          </div>
+
+          <!-- ---------- Tela ---------- -->
+          <div id="set-tela" class="set-panel hidden">
+            <label class="field">
+              <span class="field__label">Modo de captura de tela</span>
+              <select id="select-captura" class="field__input"></select>
+              <span class="field__hint">
+                Se o jogo aparece preto para a galera, experimente outro modo — o app reabre
+                sozinho para valer. O <b>Moderno</b> é o que enxerga jogo em DirectX.
+              </span>
+            </label>
+            <p class="field__hint" style="margin-top: 12px">Vale na próxima conexão.</p>
+          </div>
+
+          <!-- ---------- OBS ---------- -->
+          <div id="set-obs" class="set-panel hidden">
+            <div class="field__label">OBS automático (para o Tibia)</div>
+            <p class="field__hint" style="margin-top: 0">
+              Deixe ligado o Servidor WebSocket do OBS (Ferramentas → Configurações do Servidor
+              WebSocket) e repita aqui a porta e a senha dele.
+            </p>
+            <div class="field-row">
+              <label class="field">
+                <span class="field__label">Porta do OBS</span>
+                <input id="input-obs-porta" class="field__input" type="number" min="1" max="65535" placeholder="4455" />
+              </label>
+              <label class="field">
+                <span class="field__label">Senha do OBS</span>
+                <input id="input-obs-senha" class="field__input" type="password" placeholder="(a que você definiu no OBS)" />
+              </label>
+            </div>
+          </div>
         </div>
 
         <footer class="modal__footer">

@@ -1,0 +1,41 @@
+﻿============================================================
+ PinduCcall - diagnostico de captura
+ 14/08/2026 16:11:54
+============================================================
+
+Windows: Microsoft Windows 11 Pro - build 26200
+Versao:  25H2
+Video:   AMD Radeon RX 9070 XT (driver 32.0.31035.1003)
+
+Janelas visiveis com titulo: 12
+
+>>> JANELAS DO JOGO
+
+  Titulo........: Tibia - Messiah Two
+  Programa......: client (pid 28220)
+  Tamanho.......: 160x28
+  Escondida(DWM): 0
+  TRAVA DE COPIA: WDA_MONITOR - TRAVADA: sai preta em qualquer captura
+
+  VEREDITO: o proprio jogo pediu ao Windows para nao ser copiado.
+            Nenhum programa de captura passa por isso - a saida e
+            trocar o motor grafico do jogo (Opcoes > Graficos >
+            Avancado > OpenGL).
+
+------------------------------------------------------------
+LISTA COMPLETA (titulo | programa | trava)
+------------------------------------------------------------
+  (48) WhatsApp - Google Chrome                 | chrome             | livre
+  amd dvr overlay                               | amdow              | livre
+  C:\Windows\System32\cmd.exe                   | WindowsTerminal    | livre
+  Claude                                        | claude             | livre
+  Experiência de Entrada do Windows             | TextInputHost      | livre
+  PinduCcall - diagnostico de captura           | WindowsTerminal    | livre
+  PinduCcall - servidor da sala                 | WindowsTerminal    | livre
+  Program Manager                               | explorer           | livre
+  Sign In - Google Chrome                       | chrome             | livre
+  Spotify Premium                               | Spotify            | livre
+  teamlink – Explorador de Arquivos             | explorer           | livre
+  Tibia - Messiah Two                           | client             | TRAVADA
+
+Arquivo salvo em: C:\Users\tyreo\Desktop\teamlink\client\scripts\diagnostico-captura.txt

@@ -1,0 +1,23 @@
+node_modules/
+release/
+dist/
+data/
+data-test/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# NUNCA versionar: chave SSH privada do servidor e afins
+pinducall_vps
+pinducall_vps.pub
+*.pem
+id_ed25519
+id_rsa
+
+# Lixo local e pacotes grandes (não fazem parte do código)
+_to_delete/
+*.tar.gz
+*.tar.xz
+*.txz
+*.zip

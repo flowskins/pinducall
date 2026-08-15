@@ -1,0 +1,1002 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PinduCcall — voz, tela e resenha na sua sala</title>
+    <meta
+      name="description"
+      content="Voz, compartilhamento de tela e chat em salas privadas. Timers de hunt sincronizados, modo DJ e split de loot. Baixe o app para Windows."
+    />
+    <link rel="icon" href="imagens/mascote.webp" />
+
+    <meta property="og:title" content="PinduCcall" />
+    <meta property="og:description" content="Voz, tela e resenha na sua sala. Sem terceiro no meio." />
+    <meta property="og:image" content="imagens/mascote.webp" />
+    <meta property="og:type" content="website" />
+
+    <style>
+      @property --halo {
+        syntax: '<angle>';
+        inherits: false;
+        initial-value: 0deg;
+      }
+
+      :root {
+        color-scheme: dark;
+
+        --neon: #33ff33;
+        --neon-soft: #8cff8c;
+        --neon-deep: #1fcc1f;
+        --violet: #b14dff;
+        --violet-soft: #d6a2ff;
+
+        --bg: #07080c;
+        --bg-soft: #0d1017;
+        --card: #11141d;
+        --line: #232838;
+        --text: #eef2f8;
+        --text-dim: #a8b1c4;
+        --text-faint: #6b7488;
+
+        --sans: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+        --mono: 'Cascadia Code', 'Consolas', ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
+
+      /* Brilho de fundo, fixo e discreto. */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+        background:
+          radial-gradient(900px 500px at 15% -5%, rgba(51, 255, 51, 0.13), transparent 70%),
+          radial-gradient(800px 500px at 85% 8%, rgba(177, 77, 255, 0.13), transparent 70%);
+      }
+
+      main,
+      header,
+      footer {
+        position: relative;
+        z-index: 1;
+      }
+
+      .wrap {
+        width: min(1120px, 92vw);
+        margin: 0 auto;
+      }
+
+      a {
+        color: var(--neon);
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Topo                                                                */
+      /* ------------------------------------------------------------------ */
+
+      .topo {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(14px);
+        background: rgba(7, 8, 12, 0.78);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .topo__linha {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 0;
+      }
+
+      .marca {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        font-size: 18px;
+      }
+
+      .marca img {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        filter: drop-shadow(0 0 8px rgba(51, 255, 51, 0.5));
+      }
+
+      .marca span b {
+        color: var(--neon);
+      }
+
+      .topo nav {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        font-size: 14px;
+      }
+
+      .topo nav a {
+        color: var(--text-dim);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+
+      .topo nav a:hover {
+        color: var(--text);
+      }
+
+      @media (max-width: 720px) {
+        .topo nav a:not(.btn) {
+          display: none;
+        }
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Botões                                                              */
+      /* ------------------------------------------------------------------ */
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 13px 24px;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        font-weight: 700;
+        font-size: 15px;
+        text-decoration: none;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          box-shadow 0.2s,
+          background 0.2s;
+      }
+
+      .btn--neon {
+        background: linear-gradient(180deg, var(--neon), var(--neon-deep));
+        color: #06210a;
+        box-shadow:
+          0 0 0 1px rgba(51, 255, 51, 0.5),
+          0 10px 34px rgba(51, 255, 51, 0.28);
+      }
+
+      .btn--neon:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 0 0 1px rgba(51, 255, 51, 0.7),
+          0 14px 42px rgba(51, 255, 51, 0.4);
+      }
+
+      .btn--ghost {
+        border-color: rgba(177, 77, 255, 0.45);
+        color: var(--violet-soft);
+        background: rgba(177, 77, 255, 0.07);
+      }
+
+      .btn--ghost:hover {
+        border-color: var(--violet);
+        color: #fff;
+        transform: translateY(-2px);
+      }
+
+      .btn--sm {
+        padding: 9px 16px;
+        font-size: 14px;
+        border-radius: 10px;
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Hero                                                                */
+      /* ------------------------------------------------------------------ */
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 48px;
+        align-items: center;
+        padding: 74px 0 60px;
+      }
+
+      @media (max-width: 900px) {
+        .hero {
+          grid-template-columns: 1fr;
+          padding: 44px 0 36px;
+          text-align: center;
+        }
+      }
+
+      .selo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(51, 255, 51, 0.35);
+        background: rgba(51, 255, 51, 0.08);
+        color: var(--neon-soft);
+        font-size: 12.5px;
+        font-family: var(--mono);
+        letter-spacing: 0.4px;
+      }
+
+      .selo i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--neon);
+        box-shadow: 0 0 10px var(--neon);
+        animation: pulsa 2s ease-in-out infinite;
+      }
+
+      @keyframes pulsa {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      .hero h1 {
+        margin: 18px 0 14px;
+        font-size: clamp(34px, 5vw, 54px);
+        line-height: 1.08;
+        letter-spacing: -1.2px;
+        font-weight: 850;
+        max-width: 16ch;
+      }
+
+      @media (max-width: 900px) {
+        .hero h1 {
+          margin-inline: auto;
+        }
+      }
+
+      .hero h1 em {
+        font-style: normal;
+        background: linear-gradient(100deg, var(--neon), var(--violet-soft));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .hero p.lead {
+        font-size: 18px;
+        color: var(--text-dim);
+        margin: 0 0 26px;
+        max-width: 52ch;
+      }
+
+      @media (max-width: 900px) {
+        .hero p.lead {
+          margin-inline: auto;
+        }
+      }
+
+      .hero__acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      @media (max-width: 900px) {
+        .hero__acoes {
+          justify-content: center;
+        }
+      }
+
+      .hero__nota {
+        font-size: 13px;
+        color: var(--text-faint);
+      }
+
+      .hero__arte {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+
+      .hero__arte::after {
+        content: '';
+        position: absolute;
+        width: 78%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(51, 255, 51, 0.22), transparent 65%);
+        filter: blur(18px);
+      }
+
+      .hero__arte img {
+        position: relative;
+        width: min(100%, 420px);
+        filter: drop-shadow(0 24px 50px rgba(0, 0, 0, 0.65));
+        animation: flutua 6s ease-in-out infinite;
+      }
+
+      @keyframes flutua {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-14px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .hero__arte img,
+        .selo i {
+          animation: none;
+        }
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Seções                                                              */
+      /* ------------------------------------------------------------------ */
+
+      section {
+        padding: 62px 0;
+      }
+
+      .titulo {
+        font-size: clamp(26px, 3.4vw, 36px);
+        letter-spacing: -0.6px;
+        margin: 0 0 10px;
+        font-weight: 800;
+      }
+
+      .subtitulo {
+        color: var(--text-dim);
+        margin: 0 0 34px;
+        max-width: 62ch;
+      }
+
+      .grade {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(180deg, var(--card), var(--bg-soft));
+        padding: 24px;
+        transition:
+          transform 0.18s,
+          border-color 0.18s,
+          box-shadow 0.18s;
+      }
+
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(51, 255, 51, 0.45);
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+      }
+
+      .card h3 {
+        margin: 14px 0 8px;
+        font-size: 18px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 14.5px;
+      }
+
+      .icone {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 12px;
+        font-size: 20px;
+        background: rgba(51, 255, 51, 0.1);
+        border: 1px solid rgba(51, 255, 51, 0.3);
+      }
+
+      .icone--violeta {
+        background: rgba(177, 77, 255, 0.12);
+        border-color: rgba(177, 77, 255, 0.35);
+      }
+
+      /* Prints */
+      .print {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--bg-soft);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      }
+
+      .print img {
+        display: block;
+        width: 100%;
+      }
+
+      .print__legenda {
+        padding: 12px 18px;
+        font-size: 13px;
+        color: var(--text-faint);
+        border-top: 1px solid var(--line);
+      }
+
+      .duas {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 26px;
+        align-items: start;
+      }
+
+      @media (max-width: 900px) {
+        .duas {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Passos */
+      .passos {
+        counter-reset: passo;
+        display: grid;
+        gap: 22px;
+      }
+
+      .passo {
+        position: relative;
+        padding: 26px 24px 24px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--bg-soft);
+      }
+
+      .passo::before {
+        counter-increment: passo;
+        content: counter(passo);
+        position: absolute;
+        top: -16px;
+        left: 22px;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        font-weight: 800;
+        color: #06210a;
+        background: linear-gradient(180deg, var(--neon), var(--neon-deep));
+        box-shadow: 0 0 18px rgba(51, 255, 51, 0.4);
+      }
+
+      .passo h3 {
+        margin: 10px 0 6px;
+        font-size: 17px;
+      }
+
+      .passo p {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 14.5px;
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Download                                                            */
+      /* ------------------------------------------------------------------ */
+
+      .baixar {
+        position: relative;
+        border-radius: 22px;
+        padding: 44px;
+        overflow: hidden;
+        background: linear-gradient(160deg, rgba(51, 255, 51, 0.09), rgba(177, 77, 255, 0.09));
+        border: 1px solid rgba(51, 255, 51, 0.28);
+      }
+
+      .baixar__grade {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 30px;
+        align-items: center;
+      }
+
+      @media (max-width: 820px) {
+        .baixar {
+          padding: 30px 22px;
+        }
+        .baixar__grade {
+          grid-template-columns: 1fr;
+          text-align: center;
+          justify-items: center;
+        }
+      }
+
+      .baixar h2 {
+        margin: 0 0 8px;
+        font-size: clamp(24px, 3.2vw, 32px);
+        letter-spacing: -0.5px;
+      }
+
+      .baixar p {
+        margin: 0;
+        color: var(--text-dim);
+      }
+
+      .arquivos {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 280px;
+      }
+
+      .arquivo {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        border-radius: 13px;
+        border: 1px solid var(--line);
+        background: rgba(7, 8, 12, 0.6);
+        text-decoration: none;
+        color: var(--text);
+        transition:
+          border-color 0.16s,
+          transform 0.16s;
+      }
+
+      .arquivo:hover {
+        border-color: var(--neon);
+        transform: translateY(-2px);
+      }
+
+      .arquivo b {
+        display: block;
+        font-size: 15px;
+      }
+
+      .arquivo small {
+        color: var(--text-faint);
+        font-size: 12.5px;
+      }
+
+      .arquivo span.seta {
+        color: var(--neon);
+        font-size: 20px;
+      }
+
+      .requisitos {
+        margin-top: 26px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 22px;
+        font-size: 13px;
+        color: var(--text-faint);
+        font-family: var(--mono);
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Perguntas                                                           */
+      /* ------------------------------------------------------------------ */
+
+      details {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--bg-soft);
+        padding: 0 20px;
+        margin-bottom: 10px;
+      }
+
+      details summary {
+        cursor: pointer;
+        padding: 16px 0;
+        font-weight: 650;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      details summary::after {
+        content: '+';
+        color: var(--neon);
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      details[open] summary::after {
+        content: '−';
+      }
+
+      details p {
+        margin: 0 0 16px;
+        color: var(--text-dim);
+        font-size: 14.5px;
+      }
+
+      /* ------------------------------------------------------------------ */
+      /* Rodapé                                                              */
+      /* ------------------------------------------------------------------ */
+
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 26px 0 40px;
+        color: var(--text-faint);
+        font-size: 13.5px;
+      }
+
+      footer .linha {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="topo">
+      <div class="wrap topo__linha">
+        <div class="marca">
+          <img src="imagens/mascote.webp" alt="" />
+          <span>Pindu<b>C</b>call</span>
+        </div>
+        <nav>
+          <a href="#recursos">Recursos</a>
+          <a href="#tibia">Painel do Tibia</a>
+          <a href="#como">Como funciona</a>
+          <a class="btn btn--neon btn--sm" href="#baixar">Baixar</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- ================= Hero ================= -->
+      <div class="wrap hero">
+        <div>
+          <span class="selo"><i></i> app para Windows · versão 1.7.6</span>
+          <h1>Sua turma na sua sala, <em>sem terceiro no meio</em>.</h1>
+          <p class="lead">
+            Voz, compartilhamento de tela com som e chat de texto para até 10 pessoas por sala.
+            Cada turma cria a sala dela, com senha própria — e o áudio e o vídeo passam só pelo
+            nosso servidor, não por serviço de ninguém.
+          </p>
+          <div class="hero__acoes">
+            <a class="btn btn--neon" href="#baixar">Baixar para Windows</a>
+            <a class="btn btn--ghost" href="#recursos">Ver o que tem dentro</a>
+          </div>
+          <p class="hero__nota">Grátis para a galera · sem cadastro · sem anúncio</p>
+        </div>
+
+        <div class="hero__arte">
+          <img src="imagens/mascote.webp" alt="Mascote do PinduCcall" />
+        </div>
+      </div>
+
+      <!-- ================= Recursos ================= -->
+      <section id="recursos" class="wrap">
+        <h2 class="titulo">O que tem dentro</h2>
+        <p class="subtitulo">
+          O básico bem feito, e o resto que a gente sentia falta em outros programas.
+        </p>
+
+        <div class="grade">
+          <article class="card">
+            <div class="icone">🎙️</div>
+            <h3>Voz para 10 pessoas</h3>
+            <p>
+              Indicador de quem está falando, mudo, silenciar tudo e push-to-talk na barra de
+              espaço. Atalho global Ctrl+Shift+M funciona até com o jogo em tela cheia.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone">🖥️</div>
+            <h3>Tela com som junto</h3>
+            <p>
+              Compartilhe o monitor inteiro ou só uma janela, levando o som do sistema junto.
+              De 720p30 a 1440p30, você escolhe na hora.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone icone--violeta">👁️</div>
+            <h3>Prévia da própria tela</h3>
+            <p>
+              Uma janelinha mostra exatamente o que está saindo da sua máquina, com resolução,
+              fps e banda em uso — lidos do WebRTC, não do que você escolheu.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone icone--violeta">🔒</div>
+            <h3>Salas com senha própria</h3>
+            <p>
+              Cada turma cria a sala dela. A lista mostra o nome e quantas pessoas estão dentro,
+              mas só entra quem tem a senha — guardada com scrypt, nunca em texto puro.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone">💬</div>
+            <h3>Chat com histórico</h3>
+            <p>
+              As mensagens ficam salvas na sala. Quem chega depois vê o que já rolou, sem
+              precisar perguntar.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone icone--violeta">📎</div>
+            <h3>Arquivos no chat</h3>
+            <p>
+              Arraste um documento, print ou zip em cima do chat e pronto. Até 25 MB por
+              arquivo, e tudo é apagado sozinho depois de 24 horas.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone">⚡</div>
+            <h3>Servidor próprio (SFU)</h3>
+            <p>
+              Cada pessoa envia uma vez só e o servidor redistribui. É o que permite 10 pessoas
+              sem estourar o upload de ninguém.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================= Print da sala ================= -->
+      <section class="wrap">
+        <div class="print">
+          <img src="imagens/sala.webp" alt="A sala do PinduCcall com tela compartilhada, painel do Tibia e chat" />
+          <div class="print__legenda">
+            A sala: participantes à esquerda, tela compartilhada no centro, painel do Tibia e chat
+            à direita. (a tela compartilhada da imagem é uma ilustração)
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Painel do Tibia ================= -->
+      <section id="tibia" class="wrap">
+        <h2 class="titulo">O painel do Tibia, dentro da call</h2>
+        <p class="subtitulo">
+          Sem overlay separado, sem link para ficar mandando no grupo. Está na mesma janela da
+          conversa, e o que um faz vale para todos na hora.
+        </p>
+
+        <div class="grade">
+          <article class="card">
+            <div class="icone">⏳</div>
+            <h3>Timers sincronizados</h3>
+            <p>
+              Um clica, conta para todo mundo. A sala já nasce com a Mastermind Potion de 10
+              minutos repetindo, e você cria quantos quiser. O alarme toca em todos no mesmo
+              instante e a barra de tarefas pisca.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone icone--violeta">🎵</div>
+            <h3>Modo DJ</h3>
+            <p>
+              Alguém assume a música e todo mundo ouve o mesmo som pela call. Play, pause e pular
+              valem para todos — quem não é o DJ também manda pular. Volume separado para a call
+              e para o seu fone.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="icone">💰</div>
+            <h3>Split de loot</h3>
+            <p>
+              Cola o log do Party Hunt Analyser e sai quem paga quem, no menor número de
+              transferências. Dá para mandar o resultado direto no chat da sala.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ================= Como funciona ================= -->
+      <section id="como" class="wrap">
+        <div class="duas">
+          <div>
+            <h2 class="titulo">Como funciona</h2>
+            <p class="subtitulo">Três passos. Ninguém precisa saber o que é IP.</p>
+
+            <div class="passos">
+              <div class="passo">
+                <h3>Baixe e abra</h3>
+                <p>O app já vem apontado para o servidor. Não tem cadastro nem e-mail.</p>
+              </div>
+              <div class="passo">
+                <h3>Escolha a sala</h3>
+                <p>A lista mostra as salas e quantas pessoas tem em cada uma. Digite a senha.</p>
+              </div>
+              <div class="passo">
+                <h3>Ou crie a sua</h3>
+                <p>Nome e senha, e pronto — a sala da sua turma aparece na lista para o pessoal.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="print">
+            <img src="imagens/entrar.webp" alt="Tela de entrada do PinduCcall com a lista de salas" />
+            <div class="print__legenda">A tela de entrada.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Download ================= -->
+      <section id="baixar" class="wrap">
+        <div class="baixar">
+          <div class="baixar__grade">
+            <div>
+              <h2>Baixe o PinduCcall</h2>
+              <p>
+                Windows 10 ou 11, 64 bits. O instalador cria o atalho; a versão portátil roda
+                direto do arquivo, sem instalar nada.
+              </p>
+              <div class="requisitos">
+                <span>versão 1.7.6</span>
+                <span>Windows 10/11 x64</span>
+                <span>~90 MB</span>
+                <span>sem cadastro</span>
+              </div>
+            </div>
+
+            <div class="arquivos">
+              <a class="arquivo" href="https://github.com/flowskins/pinducall/releases/latest/download/PinduCcall-Setup.exe">
+                <span>
+                  <b>Instalador</b>
+                  <small>PinduCcall-Setup.exe · recomendado</small>
+                </span>
+                <span class="seta">↓</span>
+              </a>
+
+              <a class="arquivo" href="https://github.com/flowskins/pinducall/releases/latest/download/PinduCcall-Portable.exe">
+                <span>
+                  <b>Versão portátil</b>
+                  <small>PinduCcall-Portable.exe · roda sem instalar</small>
+                </span>
+                <span class="seta">↓</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Perguntas ================= -->
+      <section class="wrap">
+        <h2 class="titulo">Perguntas rápidas</h2>
+        <p class="subtitulo">O que a galera sempre pergunta antes de instalar.</p>
+
+        <details>
+          <summary>Preciso criar conta?</summary>
+          <p>
+            Não. Você abre o app, escreve o nome que quer usar, escolhe a sala e digita a senha
+            dela. Não tem e-mail, cadastro nem senha de conta.
+          </p>
+        </details>
+
+        <details>
+          <summary>O Windows avisou que o arquivo não é confiável. É vírus?</summary>
+          <p>
+            É o SmartScreen reclamando de programa sem assinatura digital paga — acontece com
+            qualquer app pequeno. Clique em "Mais informações" e depois em "Executar assim mesmo".
+            Se preferir, rode o arquivo no VirusTotal antes.
+          </p>
+        </details>
+
+        <details>
+          <summary>Quem consegue entrar nas minhas salas?</summary>
+          <p>
+            Só quem tem o app e a senha da sala. O nome da sala aparece na lista para quem já está
+            no servidor, mas isso sozinho não abre nada. As senhas ficam guardadas com scrypt e
+            salt, então nem quem tem acesso ao servidor lê a senha de alguém.
+          </p>
+        </details>
+
+        <details>
+          <summary>Como eu chamo alguém para a minha sala?</summary>
+          <p>
+            Dentro da sala tem o botão <b>Convidar</b>: ele gera um link e já copia. Quem clicar
+            entra direto, sem digitar senha — se for a primeira vez, o app só pergunta o nome.
+            O link vale 24 horas e serve para quantas pessoas você quiser.
+          </p>
+        </details>
+
+        <details>
+          <summary>Compartilhei o Tibia e a galera só vê preto. E agora?</summary>
+          <p>
+            O cliente do Tibia marca a própria janela com a trava de cópia do <b>Windows</b>, e
+            ela vale para qualquer programa de fora — em DirectX 5, DirectX 9 e OpenGL, todos.
+            A saída é a <b>Câmera Virtual do OBS</b>: o OBS captura o jogo, liga a câmera
+            virtual, e você escolhe ela na aba <b>Câmera / OBS</b> do PinduCcall. O app avisa
+            isso sozinho quando vê a janela travada.
+          </p>
+        </details>
+
+        <details>
+          <summary>E se for outro jogo que aparece preto?</summary>
+          <p>
+            Jogo em <b>tela cheia exclusiva</b> desenha direto na placa de vídeo e o Windows não
+            consegue entregar essa imagem. Coloque o jogo em <b>janela sem bordas</b>, ou
+            compartilhe a <b>tela inteira</b> em vez da janela. O app já avisa quais janelas
+            têm esse problema antes de você escolher.
+          </p>
+        </details>
+
+        <details>
+          <summary>Os arquivos que eu mandar ficam guardados?</summary>
+          <p>
+            Ficam 24 horas e depois são apagados do servidor. Até 25 MB por arquivo.
+            Programas e scripts (<b>.exe</b>, <b>.bat</b> e afins) são recusados de propósito.
+          </p>
+        </details>
+
+        <details>
+          <summary>A sala que eu criar fica lá para sempre?</summary>
+          <p>
+            Não. Uma sala vazia por <b>24 horas</b> é apagada, junto com o chat e os timers dela —
+            é o que evita o servidor virar um cemitério de salas mortas. Enquanto tiver gente
+            dentro, o relógio nem começa a contar. Criar de novo leva dez segundos.
+          </p>
+        </details>
+
+        <details>
+          <summary>Funciona no Mac ou no celular?</summary>
+          <p>
+            Hoje só Windows 10/11 de 64 bits. O compartilhamento de som do sistema depende de um
+            recurso que só o Windows oferece.
+          </p>
+        </details>
+
+        <details>
+          <summary>Quantas pessoas cabem?</summary>
+          <p>
+            Dez por sala, e várias salas ao mesmo tempo. O servidor é um SFU: cada pessoa manda a
+            voz e a tela uma vez só, e ele redistribui — por isso o upload de ninguém sofre.
+          </p>
+        </details>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap linha">
+        <div class="marca" style="font-size: 15px">
+          <img src="imagens/mascote.webp" alt="" style="width: 26px; height: 26px" />
+          <span>Pindu<b>C</b>call</span>
+        </div>
+        <span>Feito para a resenha. Sem anúncio, sem rastreio, sem terceiro no meio.</span>
+      </div>
+    </footer>
+  </body>
+</html>

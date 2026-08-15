@@ -1,0 +1,10 @@
+﻿teste de captura - 14/08/2026 16:08:54
+Deixe o TIBIA visivel na frente. Comecando em 5 segundos...
+Trava de copia da janela agora: 1  (0 = livre, 1 = WDA_MONITOR)
+Janela do Tibia: 1936x1048 em (-8,-8)
+  tela-gdi.png                  4,4% de pixels com imagem   (area de trabalho inteira)
+  PrintWindow respondeu: True
+  janela-printwindow.png        1,5% de pixels com imagem   (PrintWindow(RENDERFULLCONTENT))
+  janela-printwindow-classico.png      0% de pixels com imagem   (PrintWindow sem flag)
+  janela-bitblt.png               0% de pixels com imagem   (copia direta da janela)
+Imagens salvas em: C:\Users\tyreo\Desktop\teamlink\client\scripts\capturas

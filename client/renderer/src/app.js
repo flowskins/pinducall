@@ -1,0 +1,1970 @@
+import { RoomClient } from './room-client.js';
+import { AudioPlayback, MicLevelMeter } from './playback.js';
+import { icons } from './icons.js';
+import { TibiaPanel } from './tibia-panel.js';
+import { prepararAudio } from './sounds.js';
+import { listarSalas, criarSala, verConvite } from './lobby.js';
+
+// =============================================================================
+// Helpers de DOM
+// =============================================================================
+
+const $ = (id) => document.getElementById(id);
+
+const el = {
+  connectScreen: $('connect-screen'),
+  inputName: $('input-name'),
+
+  // Modal "Entrar na sala" (a senha vive aqui agora, não mais na tela principal).
+  entrarModal: $('entrar-modal'),
+  entrarForm: $('entrar-form'),
+  entrarNome: $('entrar-nome'),
+  connectError: $('connect-error'),
+  btnConnect: $('btn-connect'),
+  inputPassword: $('input-password'),
+  inputRemember: $('input-remember'),
+
+  roomList: $('room-list'),
+  roomsStatus: $('rooms-status'),
+  btnRoomsRefresh: $('btn-rooms-refresh'),
+  btnOpenCreate: $('btn-open-create'),
+  serverStatus: $('server-status'),
+
+  createModal: $('create-modal'),
+  createForm: $('create-form'),
+  createNome: $('create-nome'),
+  createSenha: $('create-senha'),
+  createSenha2: $('create-senha2'),
+  createError: $('create-error'),
+  btnCreate: $('btn-create'),
+
+  roomScreen: $('room-screen'),
+  roomTitle: $('room-title'),
+  roomCount: $('room-count'),
+  connectionDot: $('connection-dot'),
+  peerList: $('peer-list'),
+
+  selfAvatar: $('self-avatar'),
+  selfName: $('self-name'),
+  selfStatus: $('self-status'),
+  btnMic: $('btn-mic'),
+  btnDeafen: $('btn-deafen'),
+  btnSettings: $('btn-settings'),
+  btnLeave: $('btn-leave'),
+
+  stageTitle: $('stage-title'),
+  stageGrid: $('stage-grid'),
+  stageEmpty: $('stage-empty'),
+  btnShare: $('btn-share'),
+  btnInvite: $('btn-invite'),
+  btnToggleChat: $('btn-toggle-chat'),
+
+  inviteModal: $('invite-modal'),
+  inviteUrl: $('invite-url'),
+  inviteSala: $('invite-sala'),
+  inviteValidade: $('invite-validade'),
+  inviteError: $('invite-error'),
+  btnInviteCopy: $('btn-invite-copy'),
+
+  guestModal: $('guest-modal'),
+  guestForm: $('guest-form'),
+  guestNome: $('guest-nome'),
+  guestSala: $('guest-sala'),
+  guestError: $('guest-error'),
+  btnGuestCancel: $('btn-guest-cancel'),
+  btnGuestEnter: $('btn-guest-enter'),
+
+  selfPreview: $('self-preview'),
+  selfPreviewVideo: $('self-preview-video'),
+  selfPreviewStats: $('self-preview-stats'),
+  btnPreviewSize: $('btn-preview-size'),
+  btnPreviewStop: $('btn-preview-stop'),
+
+  chatPanel: $('chat-panel'),
+  chatMessages: $('chat-messages'),
+  chatForm: $('chat-form'),
+  chatInput: $('chat-input'),
+  chatDrop: $('chat-drop'),
+  btnAnexo: $('btn-anexo'),
+  inputAnexo: $('input-anexo'),
+  uploadBar: $('upload-bar'),
+  uploadNome: $('upload-nome'),
+  uploadFill: $('upload-fill'),
+  uploadCancelar: $('upload-cancelar'),
+
+  screenPicker: $('screen-picker'),
+  sourceGrid: $('source-grid'),
+  sourceDica: $('source-dica'),
+  btnSourceRefresh: $('btn-source-refresh'),
+  btnStartShare: $('btn-start-share'),
+  inputShareAudio: $('input-share-audio'),
+  selectQuality: $('select-quality'),
+
+  settingsModal: $('settings-modal'),
+  selectInput: $('select-input'),
+  selectOutput: $('select-output'),
+  selectCaptura: $('select-captura'),
+  inputObsPorta: $('input-obs-porta'),
+  inputObsSenha: $('input-obs-senha'),
+  obsAuto: $('obs-auto'),
+  btnObsAuto: $('btn-obs-auto'),
+  obsAutoStatus: $('obs-auto-status'),
+  inputVolume: $('input-volume'),
+  inputEcho: $('input-echo'),
+  inputNoise: $('input-noise'),
+  inputGain: $('input-gain'),
+  micMeterFill: $('mic-meter-fill'),
+  appVersion: $('app-version'),
+
+  toasts: $('toasts'),
+};
+
+// =============================================================================
+// Estado da aplicação
+// =============================================================================
+
+const room = new RoomClient();
+const playback = new AudioPlayback();
+const micMeter = new MicLevelMeter();
+
+/** @type {TibiaPanel|null} — criado ao entrar na sala. */
+let tibia = null;
+
+const state = {
+  settings: null,
+  /** @type {Map<string, {id, displayName, state}>} */
+  peers: new Map(),
+  /** @type {Map<string, {consumerId, peerId, element}>} */
+  tiles: new Map(),
+  selectedSourceId: null,
+  sourceTab: 'screen',
+  focusedTile: null,
+  lastChatAuthor: null,
+  lastChatAt: 0,
+  speakingTimers: new Map(),
+  selfName: '',
+  connected: false,
+
+  /** Endereço do servidor em uso (vem das preferências, editável no modal). */
+  serverUrl: '',
+  /** @type {Array<{id, nome, pessoas}>} */
+  salas: [],
+  /** Id da sala escolhida na lista. */
+  salaSelecionada: null,
+};
+
+// Paleta neon: verdes e roxos com brilho, para combinar com o tema.
+const AVATAR_COLORS = [
+  'linear-gradient(135deg, #33ff33, #1fcc1f)',
+  'linear-gradient(135deg, #b14dff, #7a2ecc)',
+  'linear-gradient(135deg, #a6ff2e, #1fcc1f)',
+  'linear-gradient(135deg, #d6a2ff, #b14dff)',
+  'linear-gradient(135deg, #33ffcc, #00a3ff)',
+  'linear-gradient(135deg, #ff7bd5, #b14dff)',
+  'linear-gradient(135deg, #aaff00, #33ff33)',
+];
+
+// Para texto (nomes no chat) precisamos de cor sólida, não de gradiente.
+const AUTHOR_COLORS = ['#33ff33', '#c77dff', '#a6ff2e', '#d6a2ff', '#33ffcc', '#ff7bd5', '#aaff00'];
+
+function initials(name) {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '??';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function hashOf(id) {
+  let hash = 0;
+  for (const char of String(id)) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash;
+}
+
+/** Gradiente do avatar. */
+function colorFor(id) {
+  return AVATAR_COLORS[hashOf(id) % AVATAR_COLORS.length];
+}
+
+/** Cor sólida para o nome no chat (gradiente não serve para texto). */
+function authorColorFor(id) {
+  return AUTHOR_COLORS[hashOf(id) % AUTHOR_COLORS.length];
+}
+
+function toast(message, kind = 'info', ms = 5000) {
+  const node = document.createElement('div');
+  node.className = `toast toast--${kind}`;
+  node.textContent = message;
+  el.toasts.append(node);
+  setTimeout(() => node.remove(), ms);
+}
+
+/**
+ * Aviso clicável e persistente (para a atualização): fica na tela até a pessoa
+ * clicar na ação ou fechar no "×". Usado para "reiniciar para atualizar" etc.
+ */
+function toastAcao(message, rotuloAcao, aoClicar, kind = 'ok') {
+  const node = document.createElement('div');
+  node.className = `toast toast--${kind} toast--acao`;
+
+  const texto = document.createElement('span');
+  texto.textContent = message;
+
+  const botao = document.createElement('button');
+  botao.className = 'toast__acao';
+  botao.textContent = rotuloAcao;
+  botao.addEventListener('click', () => {
+    try {
+      aoClicar();
+    } finally {
+      node.remove();
+    }
+  });
+
+  const fechar = document.createElement('button');
+  fechar.className = 'toast__fechar';
+  fechar.textContent = '×';
+  fechar.title = 'Dispensar';
+  fechar.addEventListener('click', () => node.remove());
+
+  node.append(texto, botao, fechar);
+  el.toasts.append(node);
+  return node;
+}
+
+/** Liga os avisos de atualização vindos do processo principal. */
+function ligarAvisosDeAtualizacao() {
+  if (!window.pinducall.update?.onStatus) return;
+
+  let barraPronta = null;
+  window.pinducall.update.onStatus((info) => {
+    if (!info || !info.status) return;
+
+    if (info.status === 'baixando') {
+      toast(`Baixando atualização ${info.versao ?? ''}…`.trim(), 'info', 6000);
+    } else if (info.status === 'pronta') {
+      barraPronta?.remove();
+      barraPronta = toastAcao(
+        `Atualização ${info.versao ?? ''} baixada — será aplicada quando você fechar o app.`.trim(),
+        'Reiniciar agora',
+        () => window.pinducall.update.reiniciarAgora(),
+      );
+    } else if (info.status === 'disponivel-manual') {
+      toastAcao(
+        `Saiu a versão ${info.versao ?? ''} do PinduCcall.`.trim(),
+        'Baixar',
+        () => window.pinducall.update.abrirDownload(),
+        'info',
+      );
+    }
+  });
+}
+
+function formatTime(timestamp) {
+  return new Date(timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// =============================================================================
+// Tela de conexão
+// =============================================================================
+
+async function loadSettings() {
+  state.settings = await window.pinducall.settings.get();
+
+  // O servidor é fixo: vem embutido no app (defaultServerUrl). A gente NÃO usa
+  // mais nenhum endereço salvo — nem os de teste local que sobraram por aí. Isso
+  // deixa a entrada sem pedir/mostrar IP e mata de vez o "conectando no localhost".
+  const info = await window.pinducall.app.info();
+  el.appVersion.textContent = `PinduCcall ${info.version} - Electron ${info.electron}`;
+  state.defaultServerUrl = info.defaultServerUrl ?? state.settings.serverUrl ?? '';
+  state.serverUrl = state.defaultServerUrl;
+  montarModosDeCaptura(info);
+
+  // Limpa qualquer endereço antigo gravado, pra não confundir versões futuras.
+  if (state.settings.serverUrl && state.settings.serverUrl !== state.serverUrl) {
+    window.pinducall.settings.set({ serverUrl: state.serverUrl }).catch(() => {});
+  }
+
+  el.inputName.value = state.settings.displayName ?? '';
+  state.salaSelecionada = state.settings.roomId ?? null;
+  // A senha/lembrar agora ficam no modal "Entrar" e são preenchidas em abrirEntrar().
+
+  el.inputVolume.value = String(Math.round((state.settings.micVolume ?? 1) * 100));
+  el.inputEcho.checked = state.settings.echoCancellation !== false;
+  el.inputNoise.checked = state.settings.noiseSuppression !== false;
+  el.inputGain.checked = state.settings.autoGainControl !== false;
+
+  playback.setMasterVolume(state.settings.micVolume ?? 1);
+
+  if (el.inputObsPorta) el.inputObsPorta.value = String(state.settings.obsPorta ?? 4455);
+  if (el.inputObsSenha) el.inputObsSenha.value = state.settings.obsSenha ?? '';
+
+  mostrarEnderecoServidor();
+  if (!el.inputName.value) el.inputName.focus();
+  atualizarSalas();
+}
+
+// =============================================================================
+// Lista de salas
+// =============================================================================
+
+/** "host:porta" do servidor fixo, só para mostrar no rodapé. */
+function rotuloDoServidor() {
+  try {
+    const url = new URL(state.serverUrl);
+    return url.port ? `${url.hostname}:${url.port}` : url.hostname;
+  } catch {
+    return state.serverUrl;
+  }
+}
+
+/**
+ * Rodapé só de leitura: mostra qual servidor está em uso. Não dá para trocar —
+ * o endereço é fixo, embutido no app. Serve de indicador (online/offline).
+ */
+function mostrarEnderecoServidor() {
+  if (el.serverStatus) el.serverStatus.textContent = `servidor: ${rotuloDoServidor()}`;
+}
+
+/** Pinta o indicador do rodapé conforme a última tentativa de falar com o servidor. */
+function marcarServidor(online) {
+  if (!el.serverStatus) return;
+  el.serverStatus.classList.toggle('server-status--on', online);
+  el.serverStatus.classList.toggle('server-status--off', !online);
+}
+
+function pluralPessoas(n) {
+  if (n === 0) return 'vazia';
+  return n === 1 ? '1 pessoa' : `${n} pessoas`;
+}
+
+function renderRoomList() {
+  el.roomList.innerHTML = '';
+
+  if (state.salas.length === 0) {
+    el.roomsStatus.textContent = 'Nenhuma sala ainda neste servidor. Crie a primeira ali embaixo.';
+    el.roomsStatus.classList.remove('hidden');
+    return;
+  }
+
+  el.roomsStatus.classList.add('hidden');
+
+  for (const sala of state.salas) {
+    const item = document.createElement('li');
+    item.className = 'room';
+    item.dataset.id = sala.id;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+
+    const nome = document.createElement('span');
+    nome.className = 'room__name';
+    nome.textContent = sala.nome;
+
+    const meta = document.createElement('span');
+    meta.className = 'room__meta';
+    meta.classList.toggle('room__meta--live', sala.pessoas > 0);
+    meta.textContent = pluralPessoas(sala.pessoas);
+
+    // Salas vazias somem sozinhas: avisa quanto tempo falta, sem poluir a lista.
+    if (sala.expiraEm) {
+      const horas = Math.max(1, Math.round((sala.expiraEm - Date.now()) / 3_600_000));
+      item.title = `Sala vazia — some em ${horas}h se ninguém entrar.`;
+    } else if (sala.fixa) {
+      item.title = 'Sala fixa do servidor.';
+    }
+
+    item.append(nome, meta);
+
+    // Clicar numa sala abre o popup que só pede a senha e entra.
+    const escolher = () => abrirEntrar(sala);
+    item.addEventListener('click', escolher);
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        escolher();
+      }
+    });
+
+    el.roomList.append(item);
+  }
+}
+
+async function atualizarSalas() {
+  el.roomsStatus.textContent = 'Procurando salas...';
+  el.roomsStatus.classList.remove('hidden');
+  el.btnRoomsRefresh.disabled = true;
+
+  try {
+    const resposta = await listarSalas(state.serverUrl);
+    state.salas = resposta.salas ?? [];
+    marcarServidor(true);
+    renderRoomList();
+  } catch (error) {
+    console.warn('[app] não consegui listar as salas:', error.message);
+    state.salas = [];
+    el.roomList.innerHTML = '';
+    marcarServidor(false);
+    el.roomsStatus.textContent = 'Servidor fora do ar. Tente de novo em alguns segundos com "atualizar".';
+    el.roomsStatus.classList.remove('hidden');
+  } finally {
+    el.btnRoomsRefresh.disabled = false;
+  }
+}
+
+el.btnRoomsRefresh.addEventListener('click', () => atualizarSalas());
+
+/** Aceita "192.168.0.10", "192.168.0.10:4000" ou a URL completa. */
+function normalizeServerUrl(raw) {
+  let value = String(raw).trim();
+  if (!value) throw new Error('Informe o endereço do servidor');
+
+  if (!/^wss?:\/\//i.test(value)) {
+    value = value.replace(/^https?:\/\//i, (match) => (match.toLowerCase() === 'https://' ? 'wss://' : 'ws://'));
+  }
+  if (!/^wss?:\/\//i.test(value)) value = `ws://${value}`;
+
+  const url = new URL(value);
+  if (!url.port && url.protocol === 'ws:') url.port = '4000';
+  if (!url.pathname || url.pathname === '/') url.pathname = '/ws';
+
+  return url.toString();
+}
+
+/**
+ * Caminho único de entrada: usado tanto pelo botão "Entrar" quanto logo
+ * depois de criar uma sala. Lança se algo der errado, para quem chamou
+ * decidir onde mostrar o erro.
+ */
+async function entrarNaSala({ roomId, password, convite, nome }) {
+  const displayName = (nome ?? el.inputName.value).trim();
+  if (!displayName) throw new Error('Escolha um nome antes de entrar');
+  if (!roomId) throw new Error('Escolha uma sala na lista ou crie uma nova');
+
+  el.inputName.value = displayName;
+
+  await window.pinducall.settings.set({
+    serverUrl: state.serverUrl,
+    roomId,
+    displayName,
+    // Entrando por convite não existe senha para guardar.
+    password: convite ? '' : password,
+    rememberPassword: convite ? false : el.inputRemember.checked,
+  });
+
+  // Precisa estar definido ANTES do join: o evento 'joined' e emitido
+  // de dentro de room.join() e já usa este nome na interface.
+  state.selfName = displayName;
+
+  await room.join({
+    url: state.serverUrl,
+    roomId,
+    displayName,
+    password,
+    convite,
+    audio: {
+      echoCancellation: el.inputEcho.checked,
+      noiseSuppression: el.inputNoise.checked,
+      autoGainControl: el.inputGain.checked,
+    },
+  });
+
+  await startMicrophone();
+}
+
+/**
+ * Abre o popup "Entrar na sala": exige só a senha. O nome já foi digitado na
+ * tela principal, então se estiver vazio a gente para aqui e pede o nome.
+ */
+function abrirEntrar(sala) {
+  if (!el.inputName.value.trim()) {
+    toast('Digite seu nome primeiro', 'error');
+    el.inputName.focus();
+    return;
+  }
+
+  state.salaSelecionada = sala.id;
+  el.entrarNome.textContent = sala.nome;
+  el.connectError.classList.add('hidden');
+
+  // Se a senha desta mesma sala ficou lembrada, já vem preenchida.
+  const lembrouEsta = state.settings?.rememberPassword && state.settings?.roomId === sala.id;
+  el.inputPassword.value = lembrouEsta ? state.settings.password ?? '' : '';
+  el.inputRemember.checked = Boolean(state.settings?.rememberPassword);
+
+  el.entrarModal.classList.remove('hidden');
+  el.inputPassword.focus();
+}
+
+el.entrarForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  el.connectError.classList.add('hidden');
+  el.btnConnect.disabled = true;
+  el.btnConnect.textContent = 'Conectando...';
+
+  try {
+    await entrarNaSala({ roomId: state.salaSelecionada, password: el.inputPassword.value });
+    closeModal('entrar-modal');
+  } catch (error) {
+    console.error('[app] falha ao entrar:', error);
+    el.connectError.textContent = error.message;
+    el.connectError.classList.remove('hidden');
+    el.entrarModal.classList.remove('hidden');
+    await room.leave().catch(() => {});
+  } finally {
+    el.btnConnect.disabled = false;
+    el.btnConnect.textContent = 'Entrar';
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Criar sala
+// ----------------------------------------------------------------------------
+
+el.btnOpenCreate.addEventListener('click', () => {
+  if (!el.inputName.value.trim()) {
+    toast('Digite seu nome primeiro', 'error');
+    el.inputName.focus();
+    return;
+  }
+  el.createError.classList.add('hidden');
+  el.createModal.classList.remove('hidden');
+  el.createNome.focus();
+});
+
+el.createForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  el.createError.classList.add('hidden');
+
+  const nome = el.createNome.value.trim();
+  const senha = el.createSenha.value;
+
+  if (senha !== el.createSenha2.value) {
+    el.createError.textContent = 'As duas senhas não são iguais';
+    el.createError.classList.remove('hidden');
+    return;
+  }
+
+  el.btnCreate.disabled = true;
+  el.btnCreate.textContent = 'Criando...';
+
+  try {
+    const sala = await criarSala(state.serverUrl, {
+      nome,
+      senha,
+      displayName: el.inputName.value.trim(),
+    });
+
+    closeModal('create-modal');
+    el.createForm.reset();
+    state.salaSelecionada = sala.id;
+    el.inputPassword.value = senha;
+
+    await atualizarSalas();
+    toast(`Sala "${sala.nome}" criada`, 'ok');
+
+    el.connectError.classList.add('hidden');
+    await entrarNaSala({ roomId: sala.id, password: senha });
+  } catch (error) {
+    console.error('[app] falha ao criar sala:', error);
+    el.createError.textContent = error.message;
+    el.createError.classList.remove('hidden');
+    el.createModal.classList.remove('hidden');
+    await room.leave().catch(() => {});
+  } finally {
+    el.btnCreate.disabled = false;
+    el.btnCreate.textContent = 'Criar e entrar';
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Convites: gerar o link (dentro da sala) e entrar por ele (fora dela)
+// ----------------------------------------------------------------------------
+
+function horasRestantes(expiraEm) {
+  return Math.max(1, Math.round((expiraEm - Date.now()) / 3_600_000));
+}
+
+async function copiarTexto(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    // Fallback para quando a permissão de área de transferência falha.
+    el.inviteUrl.select();
+    try {
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    }
+  }
+}
+
+el.btnInvite.addEventListener('click', async () => {
+  el.inviteError.classList.add('hidden');
+  el.inviteSala.textContent = el.roomTitle.textContent || 'esta sala';
+  el.inviteUrl.value = 'gerando o link...';
+  el.inviteValidade.textContent = '';
+  el.inviteModal.classList.remove('hidden');
+
+  try {
+    const convite = await room.request('criarConvite');
+    el.inviteUrl.value = convite.url;
+    el.inviteValidade.textContent = `O link vale por mais ${horasRestantes(convite.expiraEm)} horas.`;
+    el.inviteUrl.select();
+
+    if (await copiarTexto(convite.url)) toast('Link copiado. É só colar no grupo.', 'ok');
+  } catch (error) {
+    console.error('[app] falha ao gerar convite:', error);
+    el.inviteUrl.value = '';
+    el.inviteError.textContent = error.message;
+    el.inviteError.classList.remove('hidden');
+  }
+});
+
+el.btnInviteCopy.addEventListener('click', async () => {
+  if (!el.inviteUrl.value) return;
+  toast(
+    (await copiarTexto(el.inviteUrl.value))
+      ? 'Link copiado'
+      : 'Não consegui copiar. Selecione o link e use Ctrl+C.',
+    'ok',
+  );
+});
+
+/** @returns {{token: string, servidor: string|null}|null} */
+function lerConvite(url) {
+  try {
+    const alvo = new URL(String(url));
+    if (alvo.protocol !== 'pinduccall:') return null;
+    const token = alvo.searchParams.get('t');
+    if (!token) return null;
+    return { token, servidor: alvo.searchParams.get('srv') };
+  } catch {
+    return null;
+  }
+}
+
+/** Convite aguardando o convidado escolher um nome. */
+let conviteEmEspera = null;
+let entrandoPorConvite = false;
+
+async function entrarPorConvite(url) {
+  const dados = lerConvite(url);
+  if (!dados) return;
+
+  if (state.connected) {
+    toast('Você já está numa sala. Saia dela antes de usar um convite.', 'info', 7000);
+    return;
+  }
+  if (entrandoPorConvite) return;
+  entrandoPorConvite = true;
+
+  try {
+    // O link carrega o servidor: assim ele funciona mesmo para quem tem o app
+    // apontado para outro lugar.
+    if (dados.servidor) {
+      state.serverUrl = normalizeServerUrl(dados.servidor);
+      await window.pinducall.settings.set({ serverUrl: state.serverUrl });
+      mostrarEnderecoServidor();
+    }
+
+    const sala = await verConvite(state.serverUrl, dados.token);
+
+    // Primeira vez no app: só falta o nome.
+    if (!el.inputName.value.trim()) {
+      conviteEmEspera = { sala, token: dados.token };
+      el.guestSala.textContent = sala.nome;
+      el.guestError.classList.add('hidden');
+      el.guestNome.value = '';
+      el.guestModal.classList.remove('hidden');
+      el.guestNome.focus();
+      return;
+    }
+
+    await entrarNaSala({ roomId: sala.roomId, convite: dados.token });
+  } catch (error) {
+    console.error('[app] convite falhou:', error);
+    toast(error.message, 'error', 8000);
+    await room.leave().catch(() => {});
+  } finally {
+    entrandoPorConvite = false;
+    if (!state.connected) atualizarSalas();
+  }
+}
+
+el.guestForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!conviteEmEspera) return;
+
+  const nome = el.guestNome.value.trim();
+  if (!nome) return;
+
+  el.guestError.classList.add('hidden');
+  el.btnGuestEnter.disabled = true;
+  el.btnGuestEnter.textContent = 'Entrando...';
+
+  try {
+    await entrarNaSala({
+      roomId: conviteEmEspera.sala.roomId,
+      convite: conviteEmEspera.token,
+      nome,
+    });
+    closeModal('guest-modal');
+    conviteEmEspera = null;
+  } catch (error) {
+    console.error('[app] falha ao entrar pelo convite:', error);
+    el.guestError.textContent = error.message;
+    el.guestError.classList.remove('hidden');
+    await room.leave().catch(() => {});
+  } finally {
+    el.btnGuestEnter.disabled = false;
+    el.btnGuestEnter.textContent = 'Entrar na sala';
+  }
+});
+
+el.btnGuestCancel.addEventListener('click', () => {
+  conviteEmEspera = null;
+  closeModal('guest-modal');
+});
+
+window.pinducall.onDeepLink?.((url) => entrarPorConvite(url));
+
+async function startMicrophone() {
+  try {
+    const stream = await room.startMic(state.settings.inputDeviceId ?? 'default');
+    micMeter.start(stream, (level) => {
+      el.micMeterFill.style.width = `${Math.round(level * 100)}%`;
+      el.selfAvatar.classList.toggle('avatar--speaking', level > 0.06 && !room.state.micMuted);
+    });
+    await refreshDeviceLists();
+  } catch (error) {
+    console.error('[app] microfone indisponivel:', error);
+    toast(`Não consegui abrir o microfone: ${error.message}`, 'error', 8000);
+  }
+}
+
+// =============================================================================
+// Transicao para a sala
+// =============================================================================
+
+room.on('joined', (result) => {
+  state.connected = true;
+  state.peers.clear();
+  for (const peer of result.peers) state.peers.set(peer.id, peer);
+
+  // O limite real vem do servidor, não das preferências locais.
+  if (state.settings) state.settings.maxPeers = result.maxPeers;
+
+  el.connectScreen.classList.add('hidden');
+  el.roomScreen.classList.remove('hidden');
+
+  el.roomTitle.textContent = result.roomName || `#${result.roomId}`;
+  el.selfName.textContent = state.selfName;
+  el.selfAvatar.textContent = initials(state.selfName);
+  el.selfAvatar.style.background = colorFor(result.peerId);
+
+  el.chatMessages.innerHTML = '';
+  state.lastChatAuthor = null;
+  for (const message of result.chatHistory ?? []) appendChatMessage(message, false);
+  appendSystemMessage(`Você entrou em #${result.roomId}.`);
+  scrollChatToBottom();
+
+  renderPeers();
+  el.chatInput.focus();
+
+  // O painel do Tibia só existe dentro da sala.
+  tibia = new TibiaPanel({
+    room,
+    toast,
+    settings: state.settings,
+    onSettingsChange: (patch) => window.pinducall.settings.set(patch),
+  });
+
+  Promise.all([room.request('tibiaGetState'), room.request('djGetState')])
+    .then(([timers, dj]) => {
+      tibia.aplicarEstado(timers);
+      tibia.aplicarDj(dj);
+    })
+    .catch((error) => console.warn('[app] não consegui carregar o painel do Tibia:', error.message));
+
+  // O Chromium exige um gesto do usuário antes do primeiro som; entrar conta.
+  prepararAudio();
+});
+
+room.on('peerJoined', (peer) => {
+  state.peers.set(peer.id, peer);
+  renderPeers();
+  appendSystemMessage(`${peer.displayName} entrou na sala.`);
+});
+
+room.on('peerLeft', ({ peerId }) => {
+  const peer = state.peers.get(peerId);
+  state.peers.delete(peerId);
+  playback.removeByPeer(peerId);
+  removeTilesOfPeer(peerId);
+  renderPeers();
+  if (peer) appendSystemMessage(`${peer.displayName} saiu da sala.`);
+});
+
+room.on('peerUpdated', ({ peerId, state: peerState }) => {
+  const peer = state.peers.get(peerId);
+  if (!peer) return;
+  peer.state = { ...peer.state, ...peerState };
+  renderPeers();
+});
+
+room.on('speaking', ({ peerId, volume }) => {
+  const node = el.peerList.querySelector(`[data-peer-id="${peerId}"]`);
+  if (!node) return;
+
+  const avatar = node.querySelector('.avatar');
+  const speaking = volume !== null && volume !== undefined;
+
+  avatar?.classList.toggle('avatar--speaking', speaking);
+  node.classList.toggle('peer--speaking', speaking);
+});
+
+room.on('chat', (message) => {
+  appendChatMessage(message, true);
+  if (message.peerId !== room.peerId) window.pinducall.app.flashTaskbar();
+});
+
+room.on('warning', (message) => toast(message, 'warn', 7000));
+
+room.on('localState', (localState) => {
+  el.btnMic.innerHTML = localState.micMuted ? icons.micOff : icons.mic;
+  el.btnMic.classList.toggle('icon-btn--on', localState.micMuted);
+
+  el.btnDeafen.innerHTML = localState.deafened ? icons.headphonesOff : icons.headphones;
+  el.btnDeafen.classList.toggle('icon-btn--on', localState.deafened);
+
+  el.btnShare.textContent = localState.screenSharing ? 'Parar de compartilhar' : 'Compartilhar tela';
+  el.btnShare.classList.toggle('btn--primary', !localState.screenSharing);
+  el.btnShare.classList.toggle('btn--ghost', localState.screenSharing);
+
+  // Texto curto: a barra inferior é estreita e não pode quebrar em várias linhas.
+  // O compartilhamento não entra aqui porque a prévia já o deixa evidente.
+  if (localState.deafened) el.selfStatus.textContent = 'Som desligado';
+  else if (localState.micMuted) el.selfStatus.textContent = 'Microfone mudo';
+  else el.selfStatus.textContent = 'Conectado';
+});
+
+room.on('disconnected', ({ reason }) => {
+  if (!state.connected) return;
+  state.connected = false;
+
+  el.connectionDot.className = 'dot dot--bad';
+  el.connectionDot.title = 'Desconectado';
+  toast(reason, 'error', 9000);
+  appendSystemMessage('Conexão perdida. Feche e entre de novo quando o servidor voltar.');
+});
+
+// =============================================================================
+// Prévia da própria tela (monitoramento do que você está enviando)
+// =============================================================================
+
+const shareMonitor = {
+  timer: null,
+  previous: null,
+};
+
+function formatBitrate(bitsPerSecond) {
+  if (!Number.isFinite(bitsPerSecond) || bitsPerSecond <= 0) return null;
+  if (bitsPerSecond >= 1_000_000) return `${(bitsPerSecond / 1_000_000).toFixed(1).replace('.', ',')} Mbps`;
+  return `${Math.round(bitsPerSecond / 1000)} kbps`;
+}
+
+/**
+ * Lê as estatísticas reais do envio a cada 2s e mostra na barrinha da prévia.
+ * É o que sai da sua máquina, não o que você configurou: se a rede apertar e o
+ * WebRTC baixar a resolução sozinho, você vê acontecer aqui.
+ */
+async function updateShareStats() {
+  try {
+    const current = await room.getScreenShareStats();
+    if (!current) return;
+
+    const parts = [];
+
+    if (current.width > 0) parts.push(`${current.width}x${current.height}`);
+    if (current.framesPerSecond > 0) parts.push(`${Math.round(current.framesPerSecond)} fps`);
+
+    if (shareMonitor.previous) {
+      const deltaBits = (current.bytesSent - shareMonitor.previous.bytesSent) * 8;
+      const deltaSeconds = (current.at - shareMonitor.previous.at) / 1000;
+      const bitrate = formatBitrate(deltaBits / deltaSeconds);
+      if (bitrate) parts.push(bitrate);
+    }
+
+    shareMonitor.previous = current;
+    el.selfPreviewStats.textContent = parts.length > 0 ? parts.join(' · ') : 'conectando...';
+  } catch (error) {
+    console.warn('[app] não consegui ler as estatísticas do envio:', error.message);
+  }
+}
+
+room.on('localScreen', ({ stream }) => {
+  el.selfPreviewVideo.srcObject = stream;
+  el.selfPreviewVideo.play().catch(() => {});
+  el.selfPreview.classList.remove('hidden');
+
+  el.selfPreviewStats.textContent = 'iniciando...';
+  shareMonitor.previous = null;
+
+  clearInterval(shareMonitor.timer);
+  shareMonitor.timer = setInterval(updateShareStats, 2000);
+  setTimeout(updateShareStats, 700);
+});
+
+room.on('localScreenEnded', () => {
+  clearInterval(shareMonitor.timer);
+  shareMonitor.timer = null;
+  shareMonitor.previous = null;
+
+  el.selfPreviewVideo.srcObject = null;
+  el.selfPreview.classList.add('hidden');
+  el.selfPreview.classList.remove('self-preview--large');
+  el.btnPreviewSize.innerHTML = icons.expand;
+  el.btnPreviewSize.title = 'Ampliar prévia';
+});
+
+el.btnPreviewSize.addEventListener('click', () => {
+  const large = el.selfPreview.classList.toggle('self-preview--large');
+  el.btnPreviewSize.innerHTML = large ? icons.shrink : icons.expand;
+  el.btnPreviewSize.title = large ? 'Reduzir prévia' : 'Ampliar prévia';
+});
+
+el.btnPreviewStop.addEventListener('click', () => {
+  room.stopScreenShare().catch((error) => toast(error.message, 'error'));
+});
+
+// =============================================================================
+// Mídia recebida
+// =============================================================================
+
+room.on('track', ({ consumerId, peerId, source, kind, track }) => {
+  if (kind === 'audio') {
+    playback.add(consumerId, peerId, track);
+    return;
+  }
+
+  if (source === 'screen') addScreenTile(consumerId, peerId, track);
+});
+
+room.on('trackEnded', ({ consumerId }) => {
+  playback.remove(consumerId);
+  removeTile(consumerId);
+});
+
+function addScreenTile(consumerId, peerId, track) {
+  const peer = state.peers.get(peerId);
+  const name = peer?.displayName ?? 'Alguém';
+
+  const tile = document.createElement('div');
+  tile.className = 'tile';
+  tile.dataset.consumerId = consumerId;
+
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = true; // o audio da tela vem por um consumer separado
+  video.srcObject = new MediaStream([track]);
+  video.play().catch(() => {});
+
+  const label = document.createElement('div');
+  label.className = 'tile__label';
+  label.innerHTML = `<span class="live"></span><span>${escapeHtml(name)}</span>`;
+
+  // Botão de tela cheia: joga a transmissão da pessoa em tela cheia de verdade.
+  const btnFull = document.createElement('button');
+  btnFull.type = 'button';
+  btnFull.className = 'tile__full';
+  btnFull.title = 'Tela cheia';
+  btnFull.innerHTML = icons.expand;
+  btnFull.addEventListener('click', (event) => {
+    event.stopPropagation();
+    alternarTelaCheia(tile);
+  });
+
+  tile.append(video, label, btnFull);
+  tile.addEventListener('click', () => toggleFocus(consumerId));
+  // Duplo clique no vídeo também entra/sai de tela cheia (atalho do costume).
+  video.addEventListener('dblclick', (event) => {
+    event.stopPropagation();
+    alternarTelaCheia(tile);
+  });
+
+  el.stageGrid.append(tile);
+  state.tiles.set(consumerId, { consumerId, peerId, element: tile });
+
+  updateStageLayout();
+}
+
+function removeTile(consumerId) {
+  const tile = state.tiles.get(consumerId);
+  if (!tile) return;
+
+  const video = tile.element.querySelector('video');
+  if (video) video.srcObject = null;
+
+  tile.element.remove();
+  state.tiles.delete(consumerId);
+
+  if (state.focusedTile === consumerId) state.focusedTile = null;
+  updateStageLayout();
+}
+
+function removeTilesOfPeer(peerId) {
+  for (const [consumerId, tile] of state.tiles) {
+    if (tile.peerId === peerId) removeTile(consumerId);
+  }
+}
+
+function toggleFocus(consumerId) {
+  state.focusedTile = state.focusedTile === consumerId ? null : consumerId;
+  updateStageLayout();
+}
+
+/** Entra em tela cheia com o elemento dado, ou sai se já estiver em tela cheia. */
+function alternarTelaCheia(elemento) {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+  } else {
+    elemento.requestFullscreen?.().catch((erro) => {
+      console.warn('[app] não consegui entrar em tela cheia:', erro?.message);
+    });
+  }
+}
+
+// Troca o ícone do botão (expandir <-> encolher) conforme entra/sai de tela cheia.
+document.addEventListener('fullscreenchange', () => {
+  const emTela = document.fullscreenElement;
+  for (const { element } of state.tiles.values()) {
+    const botao = element.querySelector('.tile__full');
+    if (botao) botao.innerHTML = element === emTela ? icons.shrink : icons.expand;
+  }
+});
+
+function updateStageLayout() {
+  const count = state.tiles.size;
+  el.stageEmpty.classList.toggle('hidden', count > 0);
+
+  el.stageGrid.classList.remove('stage__grid--two', 'stage__grid--many');
+  if (!state.focusedTile) {
+    if (count === 2) el.stageGrid.classList.add('stage__grid--two');
+    else if (count > 2) el.stageGrid.classList.add('stage__grid--many');
+  }
+
+  for (const [consumerId, tile] of state.tiles) {
+    const focused = state.focusedTile === consumerId;
+    tile.element.classList.toggle('tile--focused', focused);
+    tile.element.classList.toggle('hidden', Boolean(state.focusedTile) && !focused);
+  }
+
+  if (count === 0) {
+    el.stageTitle.textContent = 'Ninguém está compartilhando a tela';
+  } else {
+    const names = [...state.tiles.values()]
+      .map((tile) => state.peers.get(tile.peerId)?.displayName ?? 'Alguém')
+      .join(', ');
+    el.stageTitle.textContent = `Compartilhando: ${names}`;
+  }
+}
+
+// =============================================================================
+// Lista de participantes
+// =============================================================================
+
+function renderPeers() {
+  el.peerList.innerHTML = '';
+
+  const peers = [...state.peers.values()].sort((a, b) =>
+    a.displayName.localeCompare(b.displayName, 'pt-BR'),
+  );
+
+  for (const peer of peers) {
+    const item = document.createElement('li');
+    item.className = 'peer';
+    item.dataset.peerId = peer.id;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.style.background = colorFor(peer.id);
+    avatar.textContent = initials(peer.displayName);
+
+    const name = document.createElement('div');
+    name.className = 'peer__name';
+    name.textContent = peer.displayName;
+
+    const badges = document.createElement('div');
+    badges.className = 'peer__badges';
+    if (peer.state?.screenSharing) {
+      const badge = document.createElement('span');
+      badge.className = 'peer__badge--sharing';
+      badge.title = 'Compartilhando a tela';
+      badge.innerHTML = icons.screenShare;
+      badges.append(badge);
+    }
+    if (peer.state?.deafened) {
+      const badge = document.createElement('span');
+      badge.className = 'peer__badge--muted';
+      badge.title = 'Com o som desligado';
+      badge.innerHTML = icons.headphonesOff;
+      badges.append(badge);
+    } else if (peer.state?.micMuted) {
+      const badge = document.createElement('span');
+      badge.className = 'peer__badge--muted';
+      badge.title = 'Microfone mudo';
+      badge.innerHTML = icons.micOff;
+      badges.append(badge);
+    }
+
+    item.append(avatar, name, badges);
+    el.peerList.append(item);
+  }
+
+  const total = state.peers.size + 1;
+  el.roomCount.textContent = `${total} / ${state.settings?.maxPeers ?? 10} conectados`;
+}
+
+// =============================================================================
+// Chat
+// =============================================================================
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (char) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
+  );
+}
+
+function isNearBottom() {
+  const { scrollTop, scrollHeight, clientHeight } = el.chatMessages;
+  return scrollHeight - scrollTop - clientHeight < 120;
+}
+
+function scrollChatToBottom() {
+  el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
+}
+
+function appendChatMessage(message, autoScroll = true) {
+  const stick = autoScroll && isNearBottom();
+
+  // Agrupa mensagens seguidas da mesma pessoa em até 5 minutos.
+  const grouped =
+    state.lastChatAuthor === message.peerId && message.sentAt - state.lastChatAt < 5 * 60_000;
+
+  const node = document.createElement('div');
+  node.className = grouped ? 'msg msg--grouped' : 'msg';
+
+  if (!grouped) {
+    const head = document.createElement('div');
+    head.className = 'msg__head';
+
+    const author = document.createElement('span');
+    author.className = 'msg__author';
+    author.textContent = message.displayName;
+    author.style.color = authorColorFor(message.peerId);
+
+    const time = document.createElement('span');
+    time.className = 'msg__time';
+    time.textContent = formatTime(message.sentAt);
+
+    head.append(author, time);
+    node.append(head);
+  }
+
+  node.append(message.arquivo ? cartaoDeArquivo(message.arquivo) : textoDaMensagem(message));
+
+  el.chatMessages.append(node);
+  state.lastChatAuthor = message.peerId;
+  state.lastChatAt = message.sentAt;
+
+  if (stick) scrollChatToBottom();
+}
+
+function textoDaMensagem(message) {
+  const text = document.createElement('div');
+  text.className = 'msg__text';
+  text.textContent = message.text;
+  return text;
+}
+
+function formatarTamanho(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const ICONES_ARQUIVO = [
+  [/\.(png|jpe?g|gif|webp|bmp|svg)$/i, '🖼️'],
+  [/\.(pdf)$/i, '📕'],
+  [/\.(docx?|odt|rtf)$/i, '📘'],
+  [/\.(xlsx?|csv|ods)$/i, '📗'],
+  [/\.(pptx?|odp)$/i, '📙'],
+  [/\.(zip|rar|7z|tar|gz)$/i, '🗜️'],
+  [/\.(mp3|wav|ogg|flac|m4a)$/i, '🎵'],
+  [/\.(mp4|mkv|avi|mov|webm)$/i, '🎬'],
+  [/\.(txt|log|md|json)$/i, '📄'],
+];
+
+function iconeDoArquivo(nome) {
+  for (const [padrao, icone] of ICONES_ARQUIVO) {
+    if (padrao.test(nome)) return icone;
+  }
+  return '📎';
+}
+
+/** Cartão de arquivo no chat: nome, tamanho, prazo e o botão de baixar. */
+function cartaoDeArquivo(arquivo) {
+  const cartao = document.createElement('div');
+  cartao.className = 'arquivo';
+
+  const icone = document.createElement('span');
+  icone.className = 'arquivo__icone';
+  icone.textContent = iconeDoArquivo(arquivo.nome);
+
+  const corpo = document.createElement('div');
+  corpo.className = 'arquivo__corpo';
+
+  const nome = document.createElement('div');
+  nome.className = 'arquivo__nome';
+  nome.textContent = arquivo.nome;
+  nome.title = arquivo.nome;
+
+  const meta = document.createElement('div');
+  meta.className = 'arquivo__meta';
+  const restam = Math.max(0, Math.round((arquivo.expiraEm - Date.now()) / 3_600_000));
+  meta.textContent = restam
+    ? `${formatarTamanho(arquivo.tamanho)} · some em ${restam}h`
+    : `${formatarTamanho(arquivo.tamanho)} · expirando`;
+
+  corpo.append(nome, meta);
+
+  const baixar = document.createElement('button');
+  baixar.className = 'btn btn--ghost btn--sm arquivo__baixar';
+  baixar.type = 'button';
+  baixar.textContent = 'Baixar';
+  baixar.addEventListener('click', () => {
+    const base = state.serverUrl.replace(/^ws/, 'http').replace(/\/ws$/, '');
+    window.pinducall.app.openExternal(`${base}/arquivo/${arquivo.token}`);
+  });
+
+  cartao.append(icone, corpo, baixar);
+  return cartao;
+}
+
+function appendSystemMessage(text) {
+  const stick = isNearBottom();
+
+  const node = document.createElement('div');
+  node.className = 'msg msg--system';
+
+  const body = document.createElement('div');
+  body.className = 'msg__text';
+  body.textContent = text;
+  node.append(body);
+
+  el.chatMessages.append(node);
+  state.lastChatAuthor = null;
+
+  if (stick) scrollChatToBottom();
+}
+
+el.chatForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const text = el.chatInput.value.trim();
+  if (!text) return;
+
+  el.chatInput.value = '';
+  try {
+    await room.sendChat(text);
+  } catch (error) {
+    toast(error.message, 'error');
+    el.chatInput.value = text;
+  }
+});
+
+// =============================================================================
+// Arquivos no chat
+// =============================================================================
+
+/** Fila de envios: um de cada vez, para a barra de progresso fazer sentido. */
+const filaDeEnvio = [];
+let envioAtual = null;
+
+function mostrarBarra(nome) {
+  el.uploadNome.textContent = nome;
+  el.uploadFill.style.width = '0%';
+  el.uploadBar.classList.remove('hidden');
+}
+
+function esconderBarra() {
+  el.uploadBar.classList.add('hidden');
+  el.uploadFill.style.width = '0%';
+}
+
+/**
+ * Sobe um arquivo. O WebSocket pede a autorização e o conteúdo vai por HTTP —
+ * XHR em vez de fetch porque só ele avisa o progresso do upload.
+ */
+function subirArquivo(url, file, aoProgresso) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    envioAtual = xhr;
+
+    xhr.open('POST', url, true);
+    xhr.responseType = 'json';
+    xhr.setRequestHeader('content-type', 'application/octet-stream');
+
+    xhr.upload.addEventListener('progress', (evento) => {
+      if (evento.lengthComputable) aoProgresso(evento.loaded / evento.total);
+    });
+
+    xhr.addEventListener('load', () => {
+      envioAtual = null;
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response ?? {});
+      else reject(new Error(xhr.response?.erro ?? `O servidor recusou (${xhr.status})`));
+    });
+
+    xhr.addEventListener('error', () => {
+      envioAtual = null;
+      reject(new Error('A conexão caiu durante o envio'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      envioAtual = null;
+      reject(new Error('Envio cancelado'));
+    });
+
+    xhr.send(file);
+  });
+}
+
+async function processarFila() {
+  if (envioAtual || filaDeEnvio.length === 0) return;
+
+  const file = filaDeEnvio.shift();
+  mostrarBarra(file.name);
+
+  try {
+    const permissao = await room.request('pedirEnvioDeArquivo', {
+      nome: file.name,
+      tamanho: file.size,
+      tipo: file.type,
+    });
+
+    await subirArquivo(permissao.url, file, (fracao) => {
+      el.uploadFill.style.width = `${Math.round(fracao * 100)}%`;
+    });
+
+    // A mensagem no chat vem do servidor pelo WebSocket; aqui é só o aviso.
+    toast(`"${file.name}" enviado`, 'ok');
+  } catch (error) {
+    console.warn('[app] envio de arquivo falhou:', error.message);
+    toast(error.message, 'error', 8000);
+  } finally {
+    esconderBarra();
+    envioAtual = null;
+    if (filaDeEnvio.length) processarFila();
+  }
+}
+
+function enfileirarArquivos(lista) {
+  if (!state.connected) {
+    toast('Entre numa sala antes de mandar arquivo.', 'info');
+    return;
+  }
+
+  const arquivos = [...lista].filter(Boolean);
+  if (!arquivos.length) return;
+
+  filaDeEnvio.push(...arquivos);
+  processarFila();
+}
+
+el.btnAnexo.addEventListener('click', () => el.inputAnexo.click());
+
+el.inputAnexo.addEventListener('change', () => {
+  enfileirarArquivos(el.inputAnexo.files);
+  el.inputAnexo.value = '';
+});
+
+el.uploadCancelar.addEventListener('click', () => {
+  filaDeEnvio.length = 0;
+  envioAtual?.abort();
+});
+
+// Arrastar e soltar em cima do chat.
+let arrastando = 0;
+
+el.chatPanel.addEventListener('dragenter', (event) => {
+  if (!state.connected || !event.dataTransfer?.types?.includes('Files')) return;
+  event.preventDefault();
+  arrastando += 1;
+  el.chatDrop.classList.remove('hidden');
+});
+
+el.chatPanel.addEventListener('dragover', (event) => {
+  if (!state.connected) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+});
+
+el.chatPanel.addEventListener('dragleave', () => {
+  arrastando = Math.max(0, arrastando - 1);
+  if (arrastando === 0) el.chatDrop.classList.add('hidden');
+});
+
+el.chatPanel.addEventListener('drop', (event) => {
+  event.preventDefault();
+  arrastando = 0;
+  el.chatDrop.classList.add('hidden');
+  enfileirarArquivos(event.dataTransfer?.files ?? []);
+});
+
+// Soltar arquivo fora do chat não pode fazer o Electron navegar para ele.
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
+
+// =============================================================================
+// Controles
+// =============================================================================
+
+el.btnMic.addEventListener('click', () => room.setMicMuted(!room.state.micMuted));
+
+el.btnDeafen.addEventListener('click', async () => {
+  const next = !room.state.deafened;
+  await room.setDeafened(next);
+  playback.setDeafened(next);
+});
+
+el.btnLeave.addEventListener('click', async () => {
+  tibia?.encerrar();
+  tibia = null;
+
+  await room.leave();
+  playback.clear();
+  micMeter.stop();
+
+  for (const consumerId of [...state.tiles.keys()]) removeTile(consumerId);
+  state.peers.clear();
+  state.connected = false;
+
+  el.roomScreen.classList.add('hidden');
+  el.connectScreen.classList.remove('hidden');
+  el.connectionDot.className = 'dot dot--ok';
+
+  // A contagem de pessoas fica velha enquanto você está na sala.
+  atualizarSalas();
+});
+
+el.btnToggleChat.addEventListener('click', () => {
+  // Esconde só o chat: o painel do Tibia continua e ocupa a coluna inteira.
+  const hidden = el.roomScreen.classList.toggle('chat-hidden');
+  el.btnToggleChat.textContent = hidden ? 'Mostrar chat' : 'Ocultar chat';
+});
+
+window.pinducall.onToggleMute(() => {
+  if (!state.connected) return;
+  room.setMicMuted(!room.state.micMuted);
+});
+
+// Push-to-talk enquanto a janela estiver em foco: segure a barra de espaço.
+document.addEventListener('keydown', (event) => {
+  if (event.code !== 'Space' || event.repeat) return;
+  if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'SELECT') return;
+  if (!state.connected || !room.state.micMuted) return;
+
+  event.preventDefault();
+  room.setMicMuted(false);
+  el.selfStatus.textContent = 'Falando (push-to-talk)';
+  document.body.dataset.pushToTalk = '1';
+});
+
+document.addEventListener('keyup', (event) => {
+  if (event.code !== 'Space' || document.body.dataset.pushToTalk !== '1') return;
+  delete document.body.dataset.pushToTalk;
+  room.setMicMuted(true);
+});
+
+// =============================================================================
+// Compartilhamento de tela
+// =============================================================================
+
+el.btnShare.addEventListener('click', async () => {
+  if (room.state.screenSharing) {
+    await room.stopScreenShare();
+    // Se estávamos transmitindo via OBS, desliga a câmera virtual dele também.
+    window.pinducall.obs?.parar?.().catch(() => {});
+    return;
+  }
+  await openScreenPicker();
+});
+
+async function openScreenPicker() {
+  state.selectedSourceId = null;
+  el.btnStartShare.disabled = true;
+  el.sourceGrid.innerHTML = '<div class="source-grid__empty">Carregando telas e janelas...</div>';
+  el.screenPicker.classList.remove('hidden');
+
+  try {
+    renderSources(await listarFontes());
+  } catch (error) {
+    el.sourceGrid.innerHTML = `<div class="source-grid__empty">Não consegui listar as telas: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
+/**
+ * Câmeras do computador, incluindo as virtuais (OBS, Streamlabs, ManyCam).
+ *
+ * A câmera virtual é a ponte para transmitir uma janela que o Windows proíbe
+ * copiar: quem captura o jogo é o OBS, e o PinduCcall só lê o resultado, que
+ * chega como uma câmera comum.
+ */
+async function listarCameras() {
+  if (!navigator.mediaDevices?.enumerateDevices) return [];
+
+  let dispositivos = await navigator.mediaDevices.enumerateDevices();
+
+  // Sem permissão de câmera, os nomes vêm vazios e a lista fica inútil. Um
+  // pedido rápido destrava os nomes; se a pessoa recusar, seguimos sem.
+  if (dispositivos.some((d) => d.kind === 'videoinput' && !d.label)) {
+    try {
+      const probe = await navigator.mediaDevices.getUserMedia({ video: true });
+      probe.getTracks().forEach((track) => track.stop());
+      dispositivos = await navigator.mediaDevices.enumerateDevices();
+    } catch {
+      // Segue com os nomes vazios; o rótulo genérico resolve.
+    }
+  }
+
+  return dispositivos
+    .filter((d) => d.kind === 'videoinput')
+    .map((d, indice) => ({
+      id: `camera:${d.deviceId}`,
+      name: d.label || `Câmera ${indice + 1}`,
+      kind: 'camera',
+      thumbnail: null,
+      appIcon: null,
+      miniaturaVazia: false,
+    }));
+}
+
+async function listarFontes() {
+  const [telas, cameras] = await Promise.all([
+    window.pinducall.screen.list(),
+    listarCameras().catch(() => []),
+  ]);
+  return [...telas, ...cameras];
+}
+
+let cachedSources = [];
+
+const DICA_CAMERA =
+  'Serve para transmitir o que o Windows não deixa copiar. Programa com trava de cópia '
+  + '(o Tibia, por exemplo) não pode ser capturado por ninguém de fora — mas se o OBS já '
+  + 'consegue mostrar esse jogo, ligue nele a "Câmera Virtual" e escolha ela aqui: o OBS '
+  + 'captura, o PinduCcall transmite.';
+
+const DICA_GENERICA =
+  'O Windows não conseguiu ler a imagem desta janela. Tente, nesta ordem: trocar o "Modo de ' +
+  'captura de tela" nas Configurações, colocar o programa em "janela sem bordas", ou ' +
+  'compartilhar a tela inteira pela aba Telas.';
+
+/**
+ * Explica o que fazer quando alguma janela da lista vier sem imagem. Se o
+ * programa for conhecido (o Tibia, por exemplo), mostra a instrução dele em vez
+ * do conselho genérico.
+ */
+async function mostrarDicaDeCaptura(fontes) {
+  const cegas = fontes.filter((fonte) => fonte.miniaturaVazia);
+  const conhecida = cegas.find((fonte) => fonte.dica);
+
+  const escrever = (texto) => {
+    el.sourceDica.textContent = texto;
+    el.sourceDica.classList.toggle('hidden', texto === '');
+  };
+
+  if (state.sourceTab === 'camera') {
+    escrever(DICA_CAMERA);
+    atualizarBlocoObs();
+    return;
+  }
+
+  el.obsAuto?.classList.add('hidden');
+
+  // Primeiro o palpite barato, que aparece na hora.
+  escrever(conhecida?.dica ?? (cegas.length > 0 ? DICA_GENERICA : ''));
+
+  if (state.sourceTab !== 'window') return;
+
+  // Depois a resposta certa, que custa uma consulta ao Windows: a trava de
+  // cópia é uma propriedade da janela, então ela explica tanto a janela que
+  // aparece preta quanto a que sumiu da lista — e diz o nome de qual é.
+  try {
+    const avisos = (await window.pinducall.screen.avisos?.(fontes.map((f) => f.name))) ?? [];
+    // A pessoa pode ter trocado de aba enquanto a consulta ia e voltava.
+    if (state.sourceTab !== 'window') return;
+    if (avisos[0]) escrever(avisos[0].aviso);
+  } catch {
+    // Sem a consulta, fica valendo o palpite acima.
+  }
+}
+
+function renderSources(sources) {
+  cachedSources = sources ?? cachedSources;
+  const filtered = cachedSources.filter((source) => source.kind === state.sourceTab);
+
+  el.sourceGrid.innerHTML = '';
+
+  if (filtered.length === 0) {
+    el.sourceGrid.innerHTML = state.sourceTab === 'camera'
+      ? '<div class="source-grid__empty">Nenhuma câmera encontrada. No OBS, clique em <b>Iniciar Câmera Virtual</b> e depois em "procurar de novo".</div>'
+      : '<div class="source-grid__empty">Nada encontrado nesta aba.</div>';
+    mostrarDicaDeCaptura([]).catch(() => {});
+    return;
+  }
+
+  mostrarDicaDeCaptura(filtered).catch(() => {});
+
+  for (const source of filtered) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'source';
+    button.dataset.sourceId = source.id;
+
+    // Algumas fontes não devolvem miniatura; nesse caso mostramos um ícone
+    // em vez de deixar um <img> quebrado na tela.
+    let thumb;
+    if (source.thumbnail) {
+      thumb = document.createElement('img');
+      thumb.className = 'source__thumb';
+      thumb.src = source.thumbnail;
+      thumb.alt = '';
+    } else {
+      thumb = document.createElement('div');
+      thumb.className = 'source__thumb source__thumb--placeholder';
+      thumb.innerHTML = icons.monitor;
+    }
+
+    const name = document.createElement('div');
+    name.className = 'source__name';
+    name.textContent = source.name;
+    name.title = source.name;
+
+    button.append(thumb, name);
+
+    // Miniatura preta = o Windows não consegue ler o desenho dessa janela, e a
+    // transmissão vai preta também. Avisa antes de a sala reclamar.
+    if (source.miniaturaVazia) {
+      button.classList.add('source--cega');
+      const aviso = document.createElement('span');
+      aviso.className = 'source__aviso';
+      aviso.textContent = 'pode ir preto';
+      aviso.title = source.dica ?? DICA_GENERICA;
+      button.append(aviso);
+    }
+    button.addEventListener('click', () => {
+      state.selectedSourceId = source.id;
+      el.btnStartShare.disabled = false;
+      for (const node of el.sourceGrid.querySelectorAll('.source')) {
+        node.classList.toggle('source--selected', node.dataset.sourceId === source.id);
+      }
+    });
+
+    el.sourceGrid.append(button);
+  }
+}
+
+el.btnSourceRefresh.addEventListener('click', async () => {
+  el.btnSourceRefresh.disabled = true;
+  el.btnSourceRefresh.textContent = 'procurando...';
+  try {
+    renderSources(await listarFontes());
+  } catch (error) {
+    toast(`Não consegui listar as telas: ${error.message}`, 'error');
+  } finally {
+    el.btnSourceRefresh.disabled = false;
+    el.btnSourceRefresh.textContent = 'procurar de novo';
+  }
+});
+
+for (const tab of document.querySelectorAll('.tab')) {
+  tab.addEventListener('click', () => {
+    for (const other of document.querySelectorAll('.tab')) other.classList.remove('tab--active');
+    tab.classList.add('tab--active');
+    state.sourceTab = tab.dataset.tab;
+    state.selectedSourceId = null;
+    el.btnStartShare.disabled = true;
+    renderSources();
+  });
+}
+
+async function iniciarCompartilhamento() {
+  if (!state.selectedSourceId) return;
+
+  const [height, frameRate] = el.selectQuality.value.split('-').map(Number);
+  el.btnStartShare.disabled = true;
+  el.btnStartShare.textContent = 'Iniciando...';
+
+  try {
+    await room.startScreenShare({
+      sourceId: state.selectedSourceId,
+      withAudio: el.inputShareAudio.checked,
+      frameRate,
+      maxHeight: height,
+    });
+    closeModal('screen-picker');
+    toast('Você está compartilhando a tela.', 'ok');
+  } catch (error) {
+    console.error('[app] compartilhamento falhou:', error);
+    toast(error.message, 'error', 8000);
+  } finally {
+    el.btnStartShare.disabled = false;
+    el.btnStartShare.textContent = 'Compartilhar';
+  }
+}
+
+el.btnStartShare.addEventListener('click', iniciarCompartilhamento);
+
+// =============================================================================
+// Modais
+// =============================================================================
+
+function closeModal(id) {
+  $(id)?.classList.add('hidden');
+  if (id === 'screen-picker') window.pinducall.screen.cancel();
+}
+
+for (const node of document.querySelectorAll('[data-close]')) {
+  node.addEventListener('click', () => closeModal(node.dataset.close));
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  for (const modal of document.querySelectorAll('.modal:not(.hidden)')) closeModal(modal.id);
+});
+
+for (const button of document.querySelectorAll('.icon-btn[data-close]')) {
+  button.innerHTML = icons.close;
+}
+
+// =============================================================================
+// Configurações de áudio
+// =============================================================================
+
+el.btnSettings.addEventListener('click', async () => {
+  await refreshDeviceLists();
+  el.settingsModal.classList.remove('hidden');
+});
+
+async function refreshDeviceLists() {
+  let devices = [];
+  try {
+    devices = await navigator.mediaDevices.enumerateDevices();
+  } catch (error) {
+    console.warn('[app] enumerateDevices falhou:', error.message);
+    return;
+  }
+
+  const fill = (select, kind, savedId) => {
+    select.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = 'default';
+    defaultOption.textContent = 'Padrão do sistema';
+    select.append(defaultOption);
+
+    for (const device of devices.filter((d) => d.kind === kind)) {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.textContent = device.label || `${kind} ${device.deviceId.slice(0, 6)}`;
+      select.append(option);
+    }
+
+    select.value = [...select.options].some((o) => o.value === savedId) ? savedId : 'default';
+  };
+
+  fill(el.selectInput, 'audioinput', state.settings?.inputDeviceId ?? 'default');
+  fill(el.selectOutput, 'audiooutput', state.settings?.outputDeviceId ?? 'default');
+}
+
+el.selectInput.addEventListener('change', async () => {
+  const deviceId = el.selectInput.value;
+  await window.pinducall.settings.set({ inputDeviceId: deviceId });
+  state.settings.inputDeviceId = deviceId;
+
+  try {
+    const stream = await room.switchMic(deviceId);
+    micMeter.start(stream, (level) => {
+      el.micMeterFill.style.width = `${Math.round(level * 100)}%`;
+      el.selfAvatar.classList.toggle('avatar--speaking', level > 0.06 && !room.state.micMuted);
+    });
+    toast('Microfone trocado.', 'ok', 3000);
+  } catch (error) {
+    toast(`Não consegui trocar o microfone: ${error.message}`, 'error');
+  }
+});
+
+el.selectOutput.addEventListener('change', async () => {
+  const deviceId = el.selectOutput.value;
+  await window.pinducall.settings.set({ outputDeviceId: deviceId });
+  state.settings.outputDeviceId = deviceId;
+  await playback.setOutputDevice(deviceId);
+});
+
+/**
+ * Lista os modos de captura que o processo principal conhece. Fora do Windows
+ * só existe um jeito de capturar, então o campo some.
+ */
+function montarModosDeCaptura(info) {
+  const modos = info.modosDeCaptura ?? [];
+  const campo = el.selectCaptura.closest('.field');
+
+  if (info.platform !== 'win32' || modos.length < 2) {
+    campo?.classList.add('hidden');
+    return;
+  }
+
+  el.selectCaptura.innerHTML = '';
+  for (const modo of modos) {
+    const opcao = document.createElement('option');
+    opcao.value = modo.id;
+    opcao.textContent = modo.rotulo;
+    el.selectCaptura.append(opcao);
+  }
+  el.selectCaptura.value = info.modoCaptura;
+}
+
+// ---------------------------------------------------------------------------
+// Modo automático do OBS (transmitir o Tibia sem abrir o OBS)
+// ---------------------------------------------------------------------------
+
+async function atualizarBlocoObs() {
+  if (!el.obsAuto) return;
+  try {
+    const disp = await window.pinducall.obs?.disponivel?.();
+    if (disp?.ok) {
+      el.obsAuto.classList.remove('hidden');
+      el.obsAutoStatus.classList.add('hidden');
+    } else {
+      // Fora do Windows ou sem OBS: não adianta mostrar o botão.
+      el.obsAuto.classList.add('hidden');
+    }
+  } catch {
+    el.obsAuto.classList.add('hidden');
+  }
+}
+
+function statusObs(texto, tipo) {
+  if (!el.obsAutoStatus) return;
+  el.obsAutoStatus.textContent = texto;
+  el.obsAutoStatus.className = 'obs-auto__status'
+    + (tipo ? ` obs-auto__status--${tipo}` : '')
+    + (texto ? '' : ' hidden');
+}
+
+el.btnObsAuto?.addEventListener('click', async () => {
+  el.btnObsAuto.disabled = true;
+  statusObs('Abrindo o OBS e montando a cena do Tibia... (pode levar uns segundos)');
+  try {
+    const r = await window.pinducall.obs.iniciar();
+    statusObs(`Câmera do OBS ligada${r?.janela ? ` (${r.janela})` : ''}. Escolhendo a câmera...`, 'ok');
+
+    // A câmera virtual leva um instante para aparecer no sistema. Tenta algumas
+    // vezes até ela surgir na lista.
+    let camera = null;
+    for (let i = 0; i < 8 && !camera; i += 1) {
+      const fontes = await listarFontes();
+      renderSources(fontes);
+      camera = fontes.find((f) => f.kind === 'camera' && /obs/i.test(f.name));
+      if (!camera) await new Promise((res) => setTimeout(res, 800));
+    }
+
+    if (!camera) {
+      statusObs('O OBS ligou, mas a câmera virtual dele ainda não apareceu. Clique em "procurar de novo".', 'erro');
+      return;
+    }
+
+    // Seleciona e já compartilha.
+    state.selectedSourceId = camera.id;
+    statusObs(`Pronto: transmitindo o Tibia pela câmera do OBS.`, 'ok');
+    await iniciarCompartilhamento();
+  } catch (error) {
+    statusObs(error.message, 'erro');
+  } finally {
+    el.btnObsAuto.disabled = false;
+  }
+});
+
+if (el.inputObsPorta) {
+  el.inputObsPorta.addEventListener('change', () => {
+    const porta = Number(el.inputObsPorta.value) || 4455;
+    window.pinducall.settings.set({ obsPorta: porta });
+    if (state.settings) state.settings.obsPorta = porta;
+  });
+}
+if (el.inputObsSenha) {
+  el.inputObsSenha.addEventListener('change', () => {
+    const senha = el.inputObsSenha.value;
+    window.pinducall.settings.set({ obsSenha: senha });
+    if (state.settings) state.settings.obsSenha = senha;
+  });
+}
+
+el.selectCaptura.addEventListener('change', async () => {
+  const modo = el.selectCaptura.value;
+  toast('Trocando o modo de captura — o app vai reabrir.', 'ok', 4000);
+  try {
+    // Se o modo mudou de verdade, o processo principal reabre o app e esta
+    // página morre no meio da chamada; então não há o que fazer depois.
+    await window.pinducall.app.setModoCaptura(modo);
+  } catch (error) {
+    toast(`Não consegui trocar o modo: ${error.message}`, 'error');
+  }
+});
+
+el.inputVolume.addEventListener('input', () => {
+  const volume = Number(el.inputVolume.value) / 100;
+  playback.setMasterVolume(volume);
+});
+
+el.inputVolume.addEventListener('change', () => {
+  window.pinducall.settings.set({ micVolume: Number(el.inputVolume.value) / 100 });
+});
+
+for (const [input, key] of [
+  [el.inputEcho, 'echoCancellation'],
+  [el.inputNoise, 'noiseSuppression'],
+  [el.inputGain, 'autoGainControl'],
+]) {
+  input.addEventListener('change', () => {
+    window.pinducall.settings.set({ [key]: input.checked });
+    if (state.settings) state.settings[key] = input.checked;
+    room.audioConstraints[key] = input.checked;
+  });
+}
+
+navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+  refreshDeviceLists().catch(() => {});
+});
+
+// =============================================================================
+// Boot
+// =============================================================================
+
+el.btnPreviewSize.innerHTML = icons.expand;
+el.btnPreviewStop.innerHTML = icons.stopShare;
+el.btnMic.innerHTML = icons.mic;
+el.btnDeafen.innerHTML = icons.headphones;
+el.btnSettings.innerHTML = icons.settings;
+el.btnLeave.innerHTML = icons.logout;
+
+loadSettings().catch((error) => {
+  console.error('[app] não consegui carregar as preferências:', error);
+});
+
+ligarAvisosDeAtualizacao();
+
+window.addEventListener('beforeunload', () => {
+  room.leave().catch(() => {});
+});

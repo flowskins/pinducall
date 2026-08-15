@@ -1,0 +1,6 @@
+Coloque aqui os arquivos gerados por "npm run dist" no cliente:
+
+  PinduCcall-Setup.exe      (instalador)
+  PinduCcall-Portable.exe   (versao portatil)
+
+A landing page aponta para estes dois nomes.

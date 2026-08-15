@@ -1,0 +1,85 @@
+﻿monitor da trava - 14/08/2026 16:21:32
+[16:21:32] TRAVADA (1 janela(s)) - o jogo ainda esta bloqueando a copia.
+      livre    1x1          oculta   Qt693QWindowOwnDCIcon Tibia
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      TRAVADA  160x28       MINIMIZADA Qt693QWindowOwnDCIcon Tibia - Messiah Two
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+
+[16:21:54] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    1x1          oculta   Qt693QWindowOwnDCIcon Tibia
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:21:59] SEM O TIBIA ABERTO
+
+[16:22:03] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:22:15] TRAVADA (1 janela(s)) - o jogo ainda esta bloqueando a copia.
+      TRAVADA  1936x1048    visivel  Qt693QWindowIcon Tibia
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+
+[16:23:01] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:23:05] SEM O TIBIA ABERTO
+
+[16:23:09] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:23:20] TRAVADA (1 janela(s)) - o jogo ainda esta bloqueando a copia.
+      TRAVADA  1936x1048    visivel  Qt693QWindowIcon Tibia
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+
+[16:23:43] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:23:46] SEM O TIBIA ABERTO
+
+[16:23:50] >>> DESTRAVOU! Foi o ultimo ajuste que voce mexeu. <<<
+            Volte ao PinduCcall e clique em "procurar de novo".
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+[16:24:02] TRAVADA (1 janela(s)) - o jogo ainda esta bloqueando a copia.
+      livre    1440x753     oculta   Qt693ScreenChangeObserverWindow 
+      livre    1x1          oculta   Qt693QWindowOwnDCIcon Tibia
+      TRAVADA  1936x1048    visivel  Qt693QWindowOwnDCIcon Tibia
+      livre    1x1          oculta   temp_d3d_window_4039785 Temp Window
+      livre    0x0          oculta   MSCTFIME UI MSCTFIME UI
+      livre    0x0          oculta   IME Default IME
+      livre    0x0          oculta   IME Default IME
+      motor grafico no arquivo do cliente: DirectX 5  (renderer= em C:\Users\tyreo\AppData\Local\Tibia\packages\Tibia\conf\clientoptions.json)
+Fim do monitoramento. Registro em: C:\Users\tyreo\Desktop\teamlink\client\scripts\monitor-trava.txt

@@ -1,0 +1,97 @@
+{
+  "name": "pinducall",
+  "productName": "PinduCcall",
+  "version": "1.7.7",
+  "private": true,
+  "description": "Voz, compartilhamento de tela e chat em sala privada hospedada no seu PC",
+  "author": {
+    "name": "PinduCcall"
+  },
+  "main": "electron/main.js",
+  "scripts": {
+    "build:renderer": "node scripts/build-renderer.mjs",
+    "watch:renderer": "node scripts/build-renderer.mjs --watch",
+    "start": "npm run build:renderer && electron .",
+    "dev": "npm run build:renderer && electron . --dev",
+    "dist": "npm run build:renderer && electron-builder --win",
+    "pack": "npm run build:renderer && electron-builder --win --dir",
+    "test": "npm run build:renderer && npm run test:obs && npm run test:media && npm run test:ui && npm run test:electron",
+    "test:obs": "node scripts/obs-test.mjs",
+    "test:media": "node scripts/e2e-media-test.mjs",
+    "test:ui": "node scripts/ui-test.mjs",
+    "test:electron": "node scripts/electron-test.mjs"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "mediasoup-client": "^3.7.16",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "playwright": "^1.56.1"
+  },
+  "build": {
+    "appId": "com.pinducall.desktop",
+    "productName": "PinduCcall",
+    "files": [
+      "electron/**/*",
+      "renderer/index.html",
+      "renderer/styles.css",
+      "renderer/assets/**/*",
+      "renderer/dist/renderer.js",
+      "build/icon.png",
+      "!**/*.map"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "flowskins",
+        "repo": "pinducall",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "PinduCcall",
+      "artifactName": "PinduCcall-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "PinduCcall-Portable.${ext}"
+    },
+    "protocols": [
+      {
+        "name": "PinduCcall",
+        "schemes": [
+          "pinduccall"
+        ]
+      }
+    ]
+  }
+}

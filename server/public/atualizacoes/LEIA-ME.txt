@@ -1,0 +1,37 @@
+Auto-atualização do PinduCcall — agora é via GitHub Releases
+============================================================
+
+Esta pasta NÃO é mais usada. O auto-update e os downloads da landing
+page agora vêm do GitHub:
+
+    https://github.com/flowskins/pinducall/releases
+
+Como publicar uma versão nova
+-----------------------------
+
+  1. No cliente, suba a versão em client/package.json
+     (ex.: "version": "1.7.7").
+
+  2. Gere os arquivos:
+         cd client
+         npm run dist
+
+  3. No GitHub, crie uma Release nova:
+       - Vá em https://github.com/flowskins/pinducall/releases/new
+       - Tag: v1.7.7 (o "v" + o mesmo número da versão)
+       - Anexe ESTES arquivos, de client/release/ :
+             PinduCcall-Setup.exe
+             PinduCcall-Setup.exe.blockmap
+             PinduCcall-Portable.exe
+             latest.yml
+       - Publique a release (NÃO deixe como rascunho/draft).
+
+Pronto. A partir daí:
+  - Os botões da landing (github.com/.../releases/latest/download/...)
+    passam a baixar essa versão.
+  - Quem tem a versão INSTALADA recebe a atualização sozinho na próxima
+    abertura e ela é aplicada ao fechar o app.
+  - Quem usa a PORTÁTIL vê o aviso "saiu versão nova" com link de download.
+
+Obs.: o latest.yml é gerado pelo próprio "npm run dist" (seção "publish"
+do package.json). Não precisa criar na mão.

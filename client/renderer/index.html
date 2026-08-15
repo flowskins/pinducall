@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src ws: wss: http: https:;"
+    />
+    <title>PinduCcall</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Brilhos verdes do fundo. Vazio de propósito: é só luz. -->
+    <div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>
+
+    <!-- ================= Tela de conexão ================= -->
+    <section id="connect-screen" class="screen screen--center">
+      <div class="card card--connect">
+        <div class="brand">
+          <img class="brand__art" src="assets/mascote-completo.png" alt="PinduCcall" />
+          <p class="brand__tagline">Sua sala, no seu PC.</p>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Seu nome</span>
+          <input id="input-name" class="field__input" maxlength="32" placeholder="Como os outros vão te ver" required />
+        </label>
+
+        <div class="rooms">
+          <div class="rooms__head">
+            <span class="field__label">Salas abertas</span>
+            <button id="btn-rooms-refresh" class="rooms__refresh" type="button" title="Atualizar lista">
+              atualizar
+            </button>
+          </div>
+
+          <ul id="room-list" class="rooms__list"></ul>
+          <p id="rooms-status" class="rooms__status">Procurando salas...</p>
+        </div>
+
+        <button id="btn-open-create" class="btn btn--primary btn--block" type="button">
+          Criar uma sala
+        </button>
+
+        <p class="footnote">
+          <span id="server-status" class="server-status">conectando ao servidor…</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= Sala ================= -->
+    <main id="room-screen" class="screen screen--room hidden">
+      <!-- Coluna esquerda: participantes -->
+      <aside class="sidebar">
+        <header class="sidebar__header">
+          <div>
+            <div id="room-title" class="sidebar__room">#geral</div>
+            <div id="room-count" class="sidebar__meta">0 / 10 conectados</div>
+          </div>
+          <div id="connection-dot" class="dot dot--ok" title="Conectado"></div>
+        </header>
+
+        <div class="sidebar__section-label">Na sala</div>
+        <ul id="peer-list" class="peer-list"></ul>
+
+        <footer class="self-bar">
+          <div class="self-bar__identity">
+            <div id="self-avatar" class="avatar avatar--sm">--</div>
+            <div class="self-bar__text">
+              <div id="self-name" class="self-bar__name">Você</div>
+              <div id="self-status" class="self-bar__status">Conectado</div>
+            </div>
+          </div>
+          <div class="self-bar__actions">
+            <button id="btn-mic" class="icon-btn" title="Microfone (Ctrl+Shift+M)"></button>
+            <button id="btn-deafen" class="icon-btn" title="Silenciar tudo"></button>
+            <button id="btn-settings" class="icon-btn" title="Configurações"></button>
+            <button id="btn-leave" class="icon-btn icon-btn--danger" title="Sair da sala"></button>
+          </div>
+        </footer>
+      </aside>
+
+      <!-- Centro: telas compartilhadas -->
+      <section class="stage">
+        <header class="stage__header">
+          <div id="stage-title" class="stage__title">Ninguém está compartilhando a tela</div>
+          <div class="stage__actions">
+            <button id="btn-share" class="btn btn--primary btn--sm">Compartilhar tela</button>
+            <button id="btn-invite" class="btn btn--ghost btn--sm">Convidar</button>
+            <button id="btn-toggle-chat" class="btn btn--ghost btn--sm">Ocultar chat</button>
+          </div>
+        </header>
+
+        <div id="stage-grid" class="stage__grid">
+          <div id="stage-empty" class="stage__empty">
+            <img class="stage__empty-mascot" src="assets/mascote.png" alt="" />
+            <p>Quando alguém compartilhar a tela, ela aparece aqui.</p>
+          </div>
+        </div>
+
+        <!-- Prévia do que VOCÊ está compartilhando (fica sobre o palco) -->
+        <div id="self-preview" class="self-preview hidden">
+          <div class="self-preview__video">
+            <video id="self-preview-video" muted autoplay playsinline></video>
+            <span id="self-preview-stats" class="self-preview__stats">iniciando...</span>
+          </div>
+          <div class="self-preview__bar">
+            <span class="self-preview__label"><span class="live"></span>Sua tela</span>
+            <button id="btn-preview-size" class="icon-btn icon-btn--tiny" title="Ampliar prévia"></button>
+            <button
+              id="btn-preview-stop"
+              class="icon-btn icon-btn--tiny icon-btn--danger"
+              title="Parar de compartilhar"
+            ></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Direita: painel do Tibia em cima, chat embaixo -->
+      <aside class="side">
+        <section id="tibia-panel" class="tibia">
+          <header class="tibia__tabs">
+            <button class="ttab ttab--active" data-ttab="timers" type="button">⏳ Timers</button>
+            <button class="ttab" data-ttab="dj" type="button">🎵 DJ</button>
+            <button class="ttab" data-ttab="split" type="button">💰 Split</button>
+          </header>
+
+          <!-- ---------- Timers ---------- -->
+          <div id="ttab-timers" class="tibia__body">
+            <ul id="timer-list" class="timers"></ul>
+
+            <form id="timer-form" class="timer-form" autocomplete="off">
+              <input id="timer-nome" class="field__input field__input--sm" maxlength="24" placeholder="Novo timer" />
+              <input id="timer-min" class="field__input field__input--sm mini" type="number" min="0" max="999" value="10" title="minutos" />
+              <span class="sep">:</span>
+              <input id="timer-seg" class="field__input field__input--sm mini" type="number" min="0" max="59" value="0" title="segundos" />
+              <label class="chk" title="repetir sem parar"><input id="timer-rep" type="checkbox" /> 🔁</label>
+              <button class="btn btn--primary btn--sm" type="submit">+</button>
+            </form>
+
+            <div class="tibia__sets">
+              <label class="setline">
+                <span>Volume do alarme</span>
+                <input id="timer-vol" class="range" type="range" min="0" max="100" value="60" />
+                <span id="timer-vol-v" class="setv">60%</span>
+              </label>
+              <label class="setline">
+                <span>Aviso antes de acabar</span>
+                <input id="timer-warn" class="range" type="range" min="0" max="30" value="10" />
+                <span id="timer-warn-v" class="setv">10s</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- ---------- DJ ---------- -->
+          <div id="ttab-dj" class="tibia__body hidden">
+            <div id="dj-status" class="dj__status">Ninguém está tocando música.</div>
+
+            <div id="dj-now" class="dj__now hidden">
+              <span class="dj__eq"><i></i><i></i><i></i></span>
+              <span id="dj-track" class="dj__track">—</span>
+            </div>
+
+            <div class="dj__controls">
+              <button id="dj-prev" class="icon-btn" title="anterior" type="button">⏮</button>
+              <button id="dj-play" class="icon-btn" title="tocar / pausar" type="button">▶</button>
+              <button id="dj-stop" class="icon-btn" title="parar" type="button">⏹</button>
+              <button id="dj-next" class="icon-btn" title="próxima" type="button">⏭</button>
+            </div>
+
+            <div id="dj-owner-tools" class="dj__tools hidden">
+              <label class="btn btn--ghost btn--sm dj__pick">
+                🎵 Escolher músicas
+                <input id="dj-files" type="file" accept="audio/*" multiple hidden />
+              </label>
+              <label class="setline">
+                <span>Volume na call</span>
+                <input id="dj-vol-call" class="range" type="range" min="0" max="100" value="70" />
+                <span id="dj-vol-call-v" class="setv">70%</span>
+              </label>
+              <label class="setline">
+                <span>Volume só pra você</span>
+                <input id="dj-vol-local" class="range" type="range" min="0" max="100" value="40" />
+                <span id="dj-vol-local-v" class="setv">40%</span>
+              </label>
+            </div>
+
+            <ul id="dj-playlist" class="dj__list"></ul>
+
+            <div class="dj__foot">
+              <button id="dj-claim" class="btn btn--primary btn--sm" type="button">🎧 Assumir a música</button>
+              <button id="dj-release" class="btn btn--ghost btn--sm hidden" type="button">Soltar</button>
+            </div>
+          </div>
+
+          <!-- ---------- Split ---------- -->
+          <div id="ttab-split" class="tibia__body hidden">
+            <textarea
+              id="split-log"
+              class="split__log"
+              placeholder="Cola aqui o log inteiro do Party Hunt Analyser (começa com &quot;Session data:&quot;)"
+            ></textarea>
+            <div class="split__actions">
+              <button id="split-calc" class="btn btn--primary btn--sm" type="button">Calcular</button>
+              <button id="split-send" class="btn btn--ghost btn--sm hidden" type="button">Mandar no chat</button>
+            </div>
+            <div id="split-result" class="split__result"></div>
+          </div>
+        </section>
+
+        <aside id="chat-panel" class="chat">
+          <header class="chat__header">Chat da sala</header>
+          <div id="chat-messages" class="chat__messages"></div>
+
+          <div id="upload-bar" class="upload hidden">
+            <div class="upload__linha">
+              <span id="upload-nome" class="upload__nome">arquivo</span>
+              <button id="upload-cancelar" class="upload__x" type="button" title="Cancelar envio">
+                ✕
+              </button>
+            </div>
+            <div class="upload__trilho"><div id="upload-fill" class="upload__fill"></div></div>
+          </div>
+
+          <div id="chat-drop" class="chat__drop hidden">
+            <span>Solte para enviar no chat</span>
+          </div>
+
+          <form id="chat-form" class="chat__form" autocomplete="off">
+            <button id="btn-anexo" class="icon-btn icon-btn--tiny" type="button" title="Enviar arquivo">
+              📎
+            </button>
+            <input id="input-anexo" class="campo-arquivo" type="file" multiple />
+            <input
+              id="chat-input"
+              class="chat__input"
+              maxlength="2000"
+              placeholder="Escreva uma mensagem"
+            />
+            <button class="btn btn--primary btn--sm" type="submit">Enviar</button>
+          </form>
+        </aside>
+      </aside>
+    </main>
+
+    <!-- ================= Modal: escolher tela ================= -->
+    <div id="screen-picker" class="modal hidden">
+      <div class="modal__backdrop" data-close="screen-picker"></div>
+      <div class="modal__panel modal__panel--wide">
+        <header class="modal__header">
+          <h2>Escolha o que compartilhar</h2>
+          <button class="icon-btn" data-close="screen-picker" title="Fechar"></button>
+        </header>
+
+        <div class="tabs">
+          <button class="tab tab--active" data-tab="screen">Telas</button>
+          <button class="tab" data-tab="window">Janelas</button>
+          <button class="tab" data-tab="camera">Câmera / OBS</button>
+          <button id="btn-source-refresh" class="tabs__refresh" type="button">procurar de novo</button>
+        </div>
+
+        <div id="source-grid" class="source-grid"></div>
+
+        <div id="obs-auto" class="obs-auto hidden">
+          <button id="btn-obs-auto" class="btn btn--primary" type="button">
+            Ligar o Tibia automático
+          </button>
+          <span class="obs-auto__hint">
+            O PinduCcall abre o OBS escondido, pega o Tibia e liga a câmera virtual sozinho.
+            Precisa do OBS instalado uma vez.
+          </span>
+          <span id="obs-auto-status" class="obs-auto__status hidden"></span>
+        </div>
+
+        <p id="source-dica" class="source-dica hidden"></p>
+
+        <footer class="modal__footer">
+          <label class="checkbox">
+            <input id="input-share-audio" type="checkbox" checked />
+            <span>Compartilhar também o som do computador</span>
+          </label>
+          <div class="modal__footer-actions">
+            <label class="field field--inline">
+              <span class="field__label">Qualidade</span>
+              <select id="select-quality" class="field__input field__input--sm">
+                <option value="720-30">720p 30fps (leve)</option>
+                <option value="1080-30" selected>1080p 30fps (padrão)</option>
+                <option value="1080-60">1080p 60fps (jogos)</option>
+                <option value="1440-30">1440p 30fps (pesado)</option>
+              </select>
+            </label>
+            <button id="btn-start-share" class="btn btn--primary" disabled>Compartilhar</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= Modal: configurações ================= -->
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal__backdrop" data-close="settings-modal"></div>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2>Configurações</h2>
+          <button class="icon-btn" data-close="settings-modal" title="Fechar"></button>
+        </header>
+
+        <div class="modal__body">
+          <label class="field">
+            <span class="field__label">Microfone</span>
+            <select id="select-input" class="field__input"></select>
+          </label>
+
+          <div class="meter">
+            <div id="mic-meter-fill" class="meter__fill"></div>
+          </div>
+          <span class="field__hint">Fale para testar: a barra deve se mexer.</span>
+
+          <label class="field">
+            <span class="field__label">Saída de áudio</span>
+            <select id="select-output" class="field__input"></select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Volume geral</span>
+            <input id="input-volume" class="range" type="range" min="0" max="100" value="100" />
+          </label>
+
+          <div class="field__label" style="margin-top: 8px">Processamento do microfone</div>
+          <label class="checkbox">
+            <input id="input-echo" type="checkbox" checked />
+            <span>Cancelamento de eco</span>
+          </label>
+          <label class="checkbox">
+            <input id="input-noise" type="checkbox" checked />
+            <span>Supressão de ruido</span>
+          </label>
+          <label class="checkbox">
+            <input id="input-gain" type="checkbox" checked />
+            <span>Ganho automático</span>
+          </label>
+
+          <label class="field" style="margin-top: 14px">
+            <span class="field__label">Modo de captura de tela</span>
+            <select id="select-captura" class="field__input"></select>
+            <span class="field__hint">
+              Se o jogo aparece preto para a galera, experimente outro modo — o app reabre
+              sozinho para valer. O <b>Moderno</b> é o que enxerga jogo em DirectX.
+            </span>
+          </label>
+
+          <div class="field__label" style="margin-top: 14px">OBS automático (para o Tibia)</div>
+          <p class="field__hint" style="margin-top: 0">
+            Deixe ligado o Servidor WebSocket do OBS (Ferramentas → Configurações do Servidor
+            WebSocket) e repita aqui a porta e a senha dele.
+          </p>
+          <div class="field-row">
+            <label class="field">
+              <span class="field__label">Porta do OBS</span>
+              <input id="input-obs-porta" class="field__input" type="number" min="1" max="65535" placeholder="4455" />
+            </label>
+            <label class="field">
+              <span class="field__label">Senha do OBS</span>
+              <input id="input-obs-senha" class="field__input" type="password" placeholder="(a que você definiu no OBS)" />
+            </label>
+          </div>
+
+          <p class="field__hint" style="margin-top: 12px">
+            Mudanças de microfone valem na hora. As demais valem na próxima conexão.
+          </p>
+        </div>
+
+        <footer class="modal__footer">
+          <div id="app-version" class="footnote"></div>
+          <button class="btn btn--primary" data-close="settings-modal">Pronto</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= Modal: entrar na sala ================= -->
+    <div id="entrar-modal" class="modal hidden">
+      <div class="modal__backdrop" data-close="entrar-modal"></div>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2>Entrar na sala</h2>
+          <button class="icon-btn" data-close="entrar-modal" title="Fechar"></button>
+        </header>
+
+        <form id="entrar-form" class="modal__body" autocomplete="off">
+          <p class="modal__lead">Você vai entrar em <strong id="entrar-nome">—</strong>.</p>
+
+          <label class="field">
+            <span class="field__label">Senha da sala</span>
+            <input
+              id="input-password"
+              class="field__input"
+              type="password"
+              placeholder="Senha combinada com a galera"
+              autocomplete="off"
+            />
+          </label>
+
+          <label class="checkbox">
+            <input id="input-remember" type="checkbox" />
+            <span>Lembrar a senha neste computador</span>
+          </label>
+
+          <p id="connect-error" class="alert alert--error hidden"></p>
+
+          <button id="btn-connect" class="btn btn--primary btn--block" type="submit">Entrar</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= Modal: criar sala ================= -->
+    <div id="create-modal" class="modal hidden">
+      <div class="modal__backdrop" data-close="create-modal"></div>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2>Criar uma sala nova</h2>
+          <button class="icon-btn" data-close="create-modal" title="Fechar"></button>
+        </header>
+
+        <form id="create-form" class="modal__body" autocomplete="off">
+          <label class="field">
+            <span class="field__label">Nome da sala</span>
+            <input id="create-nome" class="field__input" maxlength="40" placeholder="Ex.: Hunt da madruga" required />
+            <span class="field__hint">É esse nome que vai aparecer na lista pra galera.</span>
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span class="field__label">Senha da sala</span>
+              <input id="create-senha" class="field__input" type="password" minlength="4" required />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Repita a senha</span>
+              <input id="create-senha2" class="field__input" type="password" minlength="4" required />
+            </label>
+          </div>
+
+          <p class="field__hint">
+            A sala aparece na lista para todo mundo, mas só entra quem souber a senha.
+          </p>
+
+          <p id="create-error" class="alert alert--error hidden"></p>
+
+          <button id="btn-create" class="btn btn--primary btn--block" type="submit">Criar e entrar</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= Modal: convite ================= -->
+    <div id="invite-modal" class="modal hidden">
+      <div class="modal__backdrop" data-close="invite-modal"></div>
+      <div class="modal__panel">
+        <header class="modal__header">
+          <h2>Convidar para a sala</h2>
+          <button class="icon-btn" data-close="invite-modal" title="Fechar"></button>
+        </header>
+
+        <div class="modal__body">
+          <p class="field__hint" style="margin-top: 0">
+            Manda esse link para quem você quer chamar. Quem clicar entra direto em
+            <b id="invite-sala">esta sala</b> — sem digitar senha.
+          </p>
+
+          <div class="linkbox">
+            <input id="invite-url" class="linkbox__input" readonly />
+            <button id="btn-invite-copy" class="btn btn--primary btn--sm" type="button">Copiar</button>
+          </div>
+
+          <p id="invite-validade" class="field__hint"></p>
+
+          <p id="invite-error" class="alert alert--error hidden"></p>
+        </div>
+
+        <footer class="modal__footer">
+          <div class="footnote">Quem não tiver o app cai na página de download.</div>
+          <button class="btn btn--primary" data-close="invite-modal">Pronto</button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= Modal: nome do convidado ================= -->
+    <div id="guest-modal" class="modal hidden">
+      <div class="modal__backdrop"></div>
+      <div class="modal__panel modal__panel--narrow">
+        <header class="modal__header">
+          <h2>Como você quer aparecer?</h2>
+        </header>
+
+        <form id="guest-form" class="modal__body" autocomplete="off">
+          <p class="field__hint" style="margin-top: 0">
+            Você foi convidado para <b id="guest-sala">uma sala</b>. Escolha um nome e já entra.
+          </p>
+
+          <label class="field">
+            <span class="field__label">Seu nome</span>
+            <input id="guest-nome" class="field__input" maxlength="32" placeholder="Como os outros vão te ver" required />
+          </label>
+
+          <p id="guest-error" class="alert alert--error hidden"></p>
+
+          <div class="modal__footer-actions">
+            <button id="btn-guest-cancel" class="btn btn--ghost" type="button">Agora não</button>
+            <button id="btn-guest-enter" class="btn btn--primary" type="submit">Entrar na sala</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toasts" class="toasts"></div>
+
+    <script src="dist/renderer.js"></script>
+  </body>
+</html>

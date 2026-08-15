@@ -1,0 +1,34 @@
+[Unit]
+Description=PinduCcall - servidor SFU (mediasoup) + sinalizacao
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pinducall
+Group=pinducall
+WorkingDirectory=/opt/pinducall
+EnvironmentFile=/opt/pinducall/.env
+ExecStart=/usr/bin/node /opt/pinducall/src/index.js
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Precisa abrir muitos sockets UDP (um por transporte WebRTC).
+LimitNOFILE=65535
+
+# Endurecimento basico.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/pinducall/data
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pinducall
+
+[Install]
+WantedBy=multi-user.target

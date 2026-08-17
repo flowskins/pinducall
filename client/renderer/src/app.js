@@ -43,6 +43,11 @@ const el = {
   roomCount: $('room-count'),
   connectionDot: $('connection-dot'),
   peerList: $('peer-list'),
+  btnCriarCanal: $('btn-criar-canal'),
+  canalCriar: $('canal-criar'),
+  inputCanal: $('input-canal'),
+  btnCanalOk: $('btn-canal-ok'),
+  btnCanalCancel: $('btn-canal-cancel'),
 
   selfAvatar: $('self-avatar'),
   selfName: $('self-name'),
@@ -157,6 +162,15 @@ const state = {
   salas: [],
   /** Id da sala escolhida na lista. */
   salaSelecionada: null,
+
+  /** Sub-salas (canais de voz) da sala atual. */
+  canais: [{ id: 'principal', nome: 'Principal', fixo: true, count: 0 }],
+  /** Em qual sub-sala eu estou. */
+  selfChannel: 'principal',
+  /** Peer com o painel de volume aberto (null = nenhum). */
+  openPeerPanel: null,
+  /** Mostrando o campo de criar sub-sala? */
+  criandoCanal: false,
 };
 
 // Paleta neon: verdes e roxos com brilho, para combinar com o tema.
@@ -782,6 +796,12 @@ room.on('joined', (result) => {
   state.peers.clear();
   for (const peer of result.peers) state.peers.set(peer.id, peer);
 
+  // Sub-salas: começo sempre no canal principal.
+  state.canais = result.canais ?? [{ id: 'principal', nome: 'Principal', fixo: true, count: 0 }];
+  state.selfChannel = 'principal';
+  state.openPeerPanel = null;
+  esconderCriarCanal();
+
   // O limite real vem do servidor, não das preferências locais.
   if (state.settings) state.settings.maxPeers = result.maxPeers;
 
@@ -856,6 +876,19 @@ room.on('speaking', ({ peerId, volume }) => {
 
   avatar?.classList.toggle('avatar--speaking', speaking);
   node.classList.toggle('peer--speaking', speaking);
+});
+
+room.on('canais', (canais) => {
+  state.canais = Array.isArray(canais) && canais.length ? canais : state.canais;
+  renderPeers();
+});
+
+room.on('canalEntrou', ({ canal }) => {
+  state.selfChannel = canal;
+  state.openPeerPanel = null;
+  renderPeers();
+  const nome = state.canais.find((c) => c.id === canal)?.nome ?? 'sub-sala';
+  toast(`Você está agora em: ${nome}`, 'ok');
 });
 
 room.on('chat', (message) => {
@@ -1124,64 +1157,243 @@ function updateStageLayout() {
 function renderPeers() {
   el.peerList.innerHTML = '';
 
-  const peers = [...state.peers.values()].sort((a, b) =>
-    a.displayName.localeCompare(b.displayName, 'pt-BR'),
-  );
+  // O "eu" também vira um membro, para aparecer dentro da minha sub-sala.
+  const eu = state.selfPeerId && {
+    id: state.selfPeerId,
+    displayName: state.selfName,
+    isSelf: true,
+    state: {
+      channel: state.selfChannel,
+      avatar: state.settings?.avatar ?? null,
+      micMuted: room.state?.micMuted,
+      deafened: room.state?.deafened,
+      screenSharing: room.state?.screenSharing,
+    },
+  };
 
-  for (const peer of peers) {
-    const item = document.createElement('li');
-    item.className = 'peer';
-    item.dataset.peerId = peer.id;
+  // Agrupa todo mundo por sub-sala.
+  const porCanal = new Map();
+  const empurrar = (m) => {
+    const c = m.state?.channel ?? 'principal';
+    if (!porCanal.has(c)) porCanal.set(c, []);
+    porCanal.get(c).push(m);
+  };
+  for (const peer of state.peers.values()) empurrar(peer);
+  if (eu) empurrar(eu);
 
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    aplicarAvatar(avatar, { id: peer.id, name: peer.displayName, avatar: peer.state?.avatar });
+  // Ordena as sub-salas: principal primeiro, depois por nome.
+  const canais = [...state.canais].sort((a, b) => {
+    if (a.id === 'principal') return -1;
+    if (b.id === 'principal') return 1;
+    return a.nome.localeCompare(b.nome, 'pt-BR');
+  });
 
-    const name = document.createElement('div');
-    name.className = 'peer__name';
+  // Só mostra os cabeçalhos de sub-sala quando existe mais de uma.
+  const agrupar = canais.length > 1;
 
-    // Sinal REC na frente do nick de quem está compartilhando a tela.
-    if (peer.state?.screenSharing) {
-      const rec = document.createElement('span');
-      rec.className = 'peer__rec';
-      rec.innerHTML = '<span class="peer__rec-dot"></span>REC';
-      name.append(rec);
+  for (const canal of canais) {
+    const membros = (porCanal.get(canal.id) ?? []).sort((a, b) => {
+      if (a.isSelf) return -1;
+      if (b.isSelf) return 1;
+      return a.displayName.localeCompare(b.displayName, 'pt-BR');
+    });
+
+    if (agrupar) el.peerList.append(criarCabecalhoCanal(canal, membros.length));
+
+    for (const membro of membros) {
+      el.peerList.append(criarLinhaPeer(membro));
+      if (!membro.isSelf && state.openPeerPanel === membro.id) {
+        el.peerList.append(criarPainelVolume(membro));
+      }
     }
-    const nomeTexto = document.createElement('span');
-    nomeTexto.className = 'peer__name-txt';
-    nomeTexto.textContent = peer.displayName;
-    name.append(nomeTexto);
-
-    const badges = document.createElement('div');
-    badges.className = 'peer__badges';
-    if (peer.state?.deafened) {
-      const badge = document.createElement('span');
-      badge.className = 'peer__badge--muted';
-      badge.title = 'Com o som desligado';
-      badge.innerHTML = icons.headphonesOff;
-      badges.append(badge);
-    } else if (peer.state?.micMuted) {
-      const badge = document.createElement('span');
-      badge.className = 'peer__badge--muted';
-      badge.title = 'Microfone mudo';
-      badge.innerHTML = icons.micOff;
-      badges.append(badge);
-    }
-
-    item.append(avatar, name, badges);
-
-    // Quem compartilha vira clicável: leva a tela dessa pessoa para o destaque.
-    if (peer.state?.screenSharing) {
-      item.classList.add('peer--sharing');
-      item.title = 'Compartilhando a tela — clique para assistir';
-      item.addEventListener('click', () => focarTelaDoPeer(peer.id));
-    }
-
-    el.peerList.append(item);
   }
 
   const total = state.peers.size + 1;
   el.roomCount.textContent = `${total} / ${state.settings?.maxPeers ?? 10} conectados`;
+}
+
+/** Cabeçalho de uma sub-sala, com contagem e botão de entrar. */
+function criarCabecalhoCanal(canal, count) {
+  const li = document.createElement('li');
+  li.className = 'canal';
+  if (canal.id === state.selfChannel) li.classList.add('canal--atual');
+
+  const nome = document.createElement('span');
+  nome.className = 'canal__nome';
+  nome.innerHTML = `${icons.users}<span>${escapeHtml(canal.nome)}</span>`;
+
+  const cont = document.createElement('span');
+  cont.className = 'canal__count';
+  cont.textContent = String(count);
+
+  li.append(nome, cont);
+
+  if (canal.id !== state.selfChannel) {
+    const entrar = document.createElement('button');
+    entrar.className = 'canal__entrar';
+    entrar.title = 'Entrar nesta sub-sala';
+    entrar.innerHTML = icons.enter;
+    entrar.addEventListener('click', () => entrarSubSala(canal.id));
+    li.append(entrar);
+  }
+
+  return li;
+}
+
+/** Uma linha de participante (funciona para os outros e para você). */
+function criarLinhaPeer(membro) {
+  const item = document.createElement('li');
+  item.className = 'peer';
+  if (membro.isSelf) item.classList.add('peer--self');
+  item.dataset.peerId = membro.id;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  aplicarAvatar(avatar, { id: membro.id, name: membro.displayName, avatar: membro.state?.avatar });
+
+  const name = document.createElement('div');
+  name.className = 'peer__name';
+
+  if (membro.state?.screenSharing) {
+    const rec = document.createElement('span');
+    rec.className = 'peer__rec';
+    rec.innerHTML = '<span class="peer__rec-dot"></span>REC';
+    name.append(rec);
+  }
+  const nomeTexto = document.createElement('span');
+  nomeTexto.className = 'peer__name-txt';
+  nomeTexto.textContent = membro.isSelf ? `${membro.displayName} (você)` : membro.displayName;
+  name.append(nomeTexto);
+
+  const badges = document.createElement('div');
+  badges.className = 'peer__badges';
+  if (membro.state?.deafened) {
+    const badge = document.createElement('span');
+    badge.className = 'peer__badge--muted';
+    badge.title = 'Com o som desligado';
+    badge.innerHTML = icons.headphonesOff;
+    badges.append(badge);
+  } else if (membro.state?.micMuted) {
+    const badge = document.createElement('span');
+    badge.className = 'peer__badge--muted';
+    badge.title = 'Microfone mudo';
+    badge.innerHTML = icons.micOff;
+    badges.append(badge);
+  }
+
+  item.append(avatar, name, badges);
+
+  // Controles de quem NÃO é você: mudo local e volume individual.
+  if (!membro.isSelf) {
+    const ctrls = document.createElement('div');
+    ctrls.className = 'peer__ctrls';
+
+    const mudo = playback.isPeerMuted(membro.id);
+    const btnMudo = document.createElement('button');
+    btnMudo.className = 'peer__ctrl' + (mudo ? ' peer__ctrl--on' : '');
+    btnMudo.title = mudo ? 'Ouvir de novo' : 'Silenciar só pra mim';
+    btnMudo.innerHTML = mudo ? icons.volumeOff : icons.volume;
+    btnMudo.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      playback.setPeerMuted(membro.id, !playback.isPeerMuted(membro.id));
+      renderPeers();
+    });
+
+    const btnVol = document.createElement('button');
+    btnVol.className = 'peer__ctrl' + (state.openPeerPanel === membro.id ? ' peer__ctrl--on' : '');
+    btnVol.title = 'Ajustar o volume dessa pessoa';
+    btnVol.innerHTML = icons.settings;
+    btnVol.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      state.openPeerPanel = state.openPeerPanel === membro.id ? null : membro.id;
+      renderPeers();
+    });
+
+    ctrls.append(btnMudo, btnVol);
+    item.append(ctrls);
+  }
+
+  // Quem compartilha vira clicável: leva a tela dessa pessoa para o destaque.
+  if (membro.state?.screenSharing && !membro.isSelf) {
+    item.classList.add('peer--sharing');
+    item.title = 'Compartilhando a tela — clique para assistir';
+    item.addEventListener('click', () => focarTelaDoPeer(membro.id));
+  }
+
+  return item;
+}
+
+/** Painel expansível com o slider de volume individual daquela pessoa. */
+function criarPainelVolume(membro) {
+  const li = document.createElement('li');
+  li.className = 'peer-vol';
+
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.min = '0';
+  range.max = '100';
+  range.value = String(Math.round(playback.getPeerVolume(membro.id) * 100));
+  range.className = 'peer-vol__range';
+  range.setAttribute('aria-label', `Volume de ${membro.displayName}`);
+
+  const val = document.createElement('span');
+  val.className = 'peer-vol__val';
+  const pintarVal = () =>
+    (val.textContent = playback.isPeerMuted(membro.id) ? 'mudo' : `${range.value}%`);
+  pintarVal();
+
+  range.addEventListener('input', () => {
+    const v = Number(range.value) / 100;
+    // Mexer no volume desfaz o mudo local.
+    if (v > 0 && playback.isPeerMuted(membro.id)) playback.setPeerMuted(membro.id, false);
+    playback.setPeerVolume(membro.id, v);
+    pintarVal();
+  });
+
+  li.append(range, val);
+  return li;
+}
+
+// =============================================================================
+// Sub-salas (canais de voz)
+// =============================================================================
+
+async function entrarSubSala(canalId) {
+  if (canalId === state.selfChannel) return;
+  try {
+    await room.entrarCanal(canalId);
+  } catch (error) {
+    toast(`Não consegui entrar na sub-sala: ${error.message}`, 'warn');
+  }
+}
+
+async function criarSubSala(nome) {
+  const limpo = String(nome ?? '').trim();
+  if (!limpo) {
+    el.inputCanal?.focus();
+    return;
+  }
+  try {
+    await room.criarCanal(limpo);
+    esconderCriarCanal();
+  } catch (error) {
+    toast(`Não consegui criar a sub-sala: ${error.message}`, 'warn');
+  }
+}
+
+function mostrarCriarCanal() {
+  state.criandoCanal = true;
+  el.canalCriar?.classList.remove('hidden');
+  if (el.inputCanal) {
+    el.inputCanal.value = '';
+    el.inputCanal.focus();
+  }
+}
+
+function esconderCriarCanal() {
+  state.criandoCanal = false;
+  el.canalCriar?.classList.add('hidden');
+  if (el.inputCanal) el.inputCanal.value = '';
 }
 
 // =============================================================================
@@ -1495,9 +1707,29 @@ el.btnDeafen.addEventListener('click', async () => {
   playback.setDeafened(next);
 });
 
+// Sub-salas: criar e cancelar.
+el.btnCriarCanal?.addEventListener('click', () => {
+  if (state.criandoCanal) esconderCriarCanal();
+  else mostrarCriarCanal();
+});
+el.btnCanalCancel?.addEventListener('click', () => esconderCriarCanal());
+el.btnCanalOk?.addEventListener('click', () => criarSubSala(el.inputCanal?.value));
+el.inputCanal?.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') {
+    ev.preventDefault();
+    criarSubSala(el.inputCanal.value);
+  } else if (ev.key === 'Escape') {
+    esconderCriarCanal();
+  }
+});
+
 el.btnLeave.addEventListener('click', async () => {
   tibia?.encerrar();
   tibia = null;
+
+  esconderCriarCanal();
+  state.selfChannel = 'principal';
+  state.openPeerPanel = null;
 
   await room.leave();
   playback.clear();

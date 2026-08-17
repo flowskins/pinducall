@@ -5,6 +5,7 @@
 export class AudioPlayback {
   #elements = new Map(); // consumerId -> HTMLAudioElement
   #peerVolumes = new Map(); // peerId -> 0..1
+  #peerMuted = new Set(); // peerIds silenciados só pra mim (mudo local)
   #outputDeviceId = 'default';
   #deafened = false;
   #masterVolume = 1;
@@ -17,7 +18,7 @@ export class AudioPlayback {
     element.dataset.peerId = peerId;
     element.srcObject = new MediaStream([track]);
     element.volume = this.#volumeFor(peerId);
-    element.muted = this.#deafened;
+    element.muted = this.#mutedFor(peerId);
 
     // Elementos ficam fora da tela; existem só para tocar o audio.
     element.style.display = 'none';
@@ -76,9 +77,29 @@ export class AudioPlayback {
     }
   }
 
+  /** Combina o "silenciar tudo" (deafen) com o mudo local daquela pessoa. */
+  #mutedFor(peerId) {
+    return this.#deafened || this.#peerMuted.has(peerId);
+  }
+
   setDeafened(deafened) {
     this.#deafened = deafened;
-    for (const element of this.#elements.values()) element.muted = deafened;
+    for (const element of this.#elements.values()) {
+      element.muted = this.#mutedFor(element.dataset.peerId);
+    }
+  }
+
+  /** Mudo local: só afeta o que EU ouço daquela pessoa. */
+  setPeerMuted(peerId, muted) {
+    if (muted) this.#peerMuted.add(peerId);
+    else this.#peerMuted.delete(peerId);
+    for (const element of this.#elements.values()) {
+      if (element.dataset.peerId === peerId) element.muted = this.#mutedFor(peerId);
+    }
+  }
+
+  isPeerMuted(peerId) {
+    return this.#peerMuted.has(peerId);
   }
 
   async #applySink(element) {

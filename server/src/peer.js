@@ -28,6 +28,9 @@ export class Peer {
       speaking: false,
       // { emoji, color } escolhido pela pessoa; null = usa iniciais + cor do id.
       avatar: null,
+      // Sub-sala (canal de voz) em que a pessoa está. 'principal' é o canal padrão
+      // por onde todo mundo entra; áudio e tela só circulam dentro do mesmo canal.
+      channel: 'principal',
     };
 
     this.closed = false;

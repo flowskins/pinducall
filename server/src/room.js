@@ -10,6 +10,12 @@ import { salas } from './room-registry.js';
 /** Fontes de mídia validas. Qualquer outra coisa e recusada no produce(). */
 export const MEDIA_SOURCES = new Set(['mic', 'screen', 'screen-audio', 'music']);
 
+/** Canal padrão: por onde todo mundo entra e para onde a sub-sala vazia devolve. */
+export const CANAL_PRINCIPAL = 'principal';
+
+/** Teto de sub-salas por sala, para ninguém poluir a lista. */
+const MAX_CANAIS = 8;
+
 export class Room {
   /** @type {Map<string, Room>} */
   static #rooms = new Map();
@@ -19,6 +25,13 @@ export class Room {
   #audioLevelObserver;
   /** @type {Map<string, import('./peer.js').Peer>} */
   #peers = new Map();
+  /**
+   * Sub-salas (canais de voz). Sempre contém o 'principal'. Cada peer carrega
+   * o id do canal em que está (peer.state.channel); mídia só circula dentro do
+   * mesmo canal.
+   * @type {Map<string, { id: string, nome: string, fixo: boolean }>}
+   */
+  #channels = new Map([[CANAL_PRINCIPAL, { id: CANAL_PRINCIPAL, nome: 'Principal', fixo: true }]]);
   #chat;
   #tibia;
   #tibiaTick = null;
@@ -102,14 +115,15 @@ export class Room {
         if (!peer.state.speaking) {
           peer.state.speaking = true;
         }
-        this.broadcast('activeSpeaker', { peerId: peer.id, volume });
+        // Só quem está no mesmo canal enxerga o indicador de fala.
+        this.broadcastChannel(peer.state.channel, 'activeSpeaker', { peerId: peer.id, volume });
       }
 
       // Quem estava falando e não aparece mais nesta rodada para de "acender".
       for (const peer of this.#peers.values()) {
         if (peer.state.speaking && !speakingIds.has(peer.id)) {
           peer.state.speaking = false;
-          this.broadcast('activeSpeaker', { peerId: peer.id, volume: null });
+          this.broadcastChannel(peer.state.channel, 'activeSpeaker', { peerId: peer.id, volume: null });
         }
       }
     });
@@ -118,7 +132,7 @@ export class Room {
       for (const peer of this.#peers.values()) {
         if (peer.state.speaking) {
           peer.state.speaking = false;
-          this.broadcast('activeSpeaker', { peerId: peer.id, volume: null });
+          this.broadcastChannel(peer.state.channel, 'activeSpeaker', { peerId: peer.id, volume: null });
         }
       }
     });
@@ -169,11 +183,16 @@ export class Room {
       this.broadcast('djUpdate', this.djState());
     }
 
+    const canalDoQueSaiu = peer.state.channel;
+
     peer.close();
     this.#peers.delete(peerId);
     this.#log.info(`${peer.displayName} saiu (${this.#peers.size}/${config.maxPeersPerRoom})`);
 
     this.broadcast('peerLeft', { peerId });
+
+    // Sub-sala que ficou vazia deixa de existir (o 'principal' nunca some).
+    this.#limparCanalSeVazio(canalDoQueSaiu);
 
     if (this.#peers.size === 0) {
       this.#log.info('Sala vazia; router será fechado para liberar recursos.');
@@ -181,6 +200,146 @@ export class Room {
       salas.marcarVazia(this.id);
       this.close();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sub-salas (canais de voz / breakout)
+  // ---------------------------------------------------------------------------
+
+  /** Lista de canais com a contagem de gente em cada um. */
+  channelsSummary() {
+    const contagem = new Map();
+    for (const peer of this.#peers.values()) {
+      const c = peer.state.channel;
+      contagem.set(c, (contagem.get(c) ?? 0) + 1);
+    }
+    return [...this.#channels.values()].map((canal) => ({
+      id: canal.id,
+      nome: canal.nome,
+      fixo: canal.fixo,
+      count: contagem.get(canal.id) ?? 0,
+    }));
+  }
+
+  #emitirCanais() {
+    this.broadcast('canaisUpdate', { canais: this.channelsSummary() });
+  }
+
+  /** Producers de todo mundo (menos `exceptPeerId`) que estão num canal. */
+  #producersDoCanal(canalId, exceptPeerId) {
+    const lista = [];
+    for (const peer of this.#peers.values()) {
+      if (peer.id === exceptPeerId || peer.state.channel !== canalId) continue;
+      for (const producer of peer.producers.values()) {
+        lista.push({
+          peerId: peer.id,
+          producerId: producer.id,
+          kind: producer.kind,
+          source: producer.appData?.source ?? 'unknown',
+        });
+      }
+    }
+    return lista;
+  }
+
+  /** Fecha, no `holder`, os consumers que puxam mídia de `producerPeerId`. */
+  #pararDeConsumirDe(holder, producerPeerId) {
+    for (const consumer of [...holder.consumers.values()]) {
+      if (consumer.appData?.peerId !== producerPeerId) continue;
+      try {
+        consumer.close();
+      } catch {
+        /* já fechado */
+      }
+      holder.consumers.delete(consumer.id);
+      this.send(holder, 'consumerClosed', { consumerId: consumer.id });
+    }
+  }
+
+  #limparCanalSeVazio(canalId) {
+    if (!canalId || canalId === CANAL_PRINCIPAL) return;
+    const canal = this.#channels.get(canalId);
+    if (!canal || canal.fixo) return;
+    const aindaTemGente = [...this.#peers.values()].some((p) => p.state.channel === canalId);
+    if (aindaTemGente) return;
+    this.#channels.delete(canalId);
+    this.#emitirCanais();
+  }
+
+  criarCanal(peer, nomeBruto) {
+    const nome = String(nomeBruto ?? '')
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24);
+    if (!nome) throw new Error('Dê um nome para a sub-sala');
+    if (this.#channels.size >= MAX_CANAIS) {
+      throw new Error(`Limite de ${MAX_CANAIS} sub-salas atingido`);
+    }
+
+    const id = `c-${randomUUID().slice(0, 8)}`;
+    this.#channels.set(id, { id, nome, fixo: false });
+    this.#log.info(`${peer.displayName} criou a sub-sala "${nome}"`);
+    this.#emitirCanais();
+    return { id, nome };
+  }
+
+  /**
+   * Move a pessoa para outro canal. A mídia dela é recortada do canal antigo e
+   * costurada no novo: quem ficou para trás para de ouvi-la, quem está no destino
+   * passa a ouvi-la, e ela mesma troca tudo o que consome.
+   */
+  entrarCanal(peer, canalId) {
+    if (!this.#channels.has(canalId)) throw new Error('Essa sub-sala não existe mais');
+
+    const canalAntigo = peer.state.channel;
+    if (canalAntigo === canalId) {
+      // Idempotente: devolve o que já dá para consumir aqui.
+      return { canal: canalId, producers: this.#producersDoCanal(canalId, peer.id) };
+    }
+
+    // 1) A própria pessoa larga tudo o que consumia no canal antigo.
+    for (const consumer of [...peer.consumers.values()]) {
+      try {
+        consumer.close();
+      } catch {
+        /* já fechado */
+      }
+      peer.consumers.delete(consumer.id);
+      this.send(peer, 'consumerClosed', { consumerId: consumer.id });
+    }
+
+    // 2) Quem ficou no canal antigo para de puxar a mídia de quem saiu.
+    for (const outro of this.#peers.values()) {
+      if (outro.id === peer.id || outro.state.channel !== canalAntigo) continue;
+      this.#pararDeConsumirDe(outro, peer.id);
+    }
+
+    // 3) Efetiva a troca.
+    peer.state.channel = canalId;
+
+    // 4) Quem já está no destino passa a receber a mídia da pessoa que chegou.
+    for (const outro of this.#peers.values()) {
+      if (outro.id === peer.id || outro.state.channel !== canalId) continue;
+      for (const producer of peer.producers.values()) {
+        this.send(outro, 'newProducer', {
+          peerId: peer.id,
+          producerId: producer.id,
+          kind: producer.kind,
+          source: producer.appData?.source ?? 'unknown',
+        });
+      }
+    }
+
+    // 5) Todo mundo atualiza onde a pessoa está; some com o canal antigo se esvaziou.
+    this.broadcast('peerUpdated', { peerId: peer.id, state: peer.state });
+    this.#limparCanalSeVazio(canalAntigo);
+    this.#emitirCanais();
+
+    this.#log.info(`${peer.displayName} foi para a sub-sala "${this.#channels.get(canalId)?.nome}"`);
+
+    // Devolve para a própria pessoa a lista de producers que ela deve consumir agora.
+    return { canal: canalId, producers: this.#producersDoCanal(canalId, peer.id) };
   }
 
   // ---------------------------------------------------------------------------
@@ -291,8 +450,9 @@ export class Room {
       }
     });
 
-    // Avisa todo mundo para pedir um consumer deste producer novo.
-    this.broadcast(
+    // Avisa quem está no MESMO canal para pedir um consumer deste producer novo.
+    this.broadcastChannel(
+      peer.state.channel,
       'newProducer',
       { peerId: peer.id, producerId: producer.id, kind, source },
       peer.id,
@@ -309,6 +469,11 @@ export class Room {
 
     const producerPeer = this.#findPeerByProducerId(producerId);
     if (!producerPeer) throw new Error(`Producer ${producerId} não existe mais`);
+
+    // Isolamento das sub-salas: só se consome mídia de quem está no mesmo canal.
+    if (producerPeer.state.channel !== peer.state.channel) {
+      throw new Error('Este producer está em outra sub-sala');
+    }
 
     const producer = producerPeer.producers.get(producerId);
 
@@ -566,6 +731,14 @@ export class Room {
   broadcast(method, data, exceptPeerId = null) {
     for (const peer of this.#peers.values()) {
       if (peer.id === exceptPeerId) continue;
+      this.send(peer, method, data);
+    }
+  }
+
+  /** Como broadcast, mas só para quem está num canal (sub-sala) específico. */
+  broadcastChannel(channelId, method, data, exceptPeerId = null) {
+    for (const peer of this.#peers.values()) {
+      if (peer.id === exceptPeerId || peer.state.channel !== channelId) continue;
       this.send(peer, method, data);
     }
   }

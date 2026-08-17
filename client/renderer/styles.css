@@ -1439,6 +1439,210 @@ select.field__input option:checked {
   animation: mic-live 2.6s ease-in-out infinite;
 }
 
+/* ---------- Controles por pessoa: volume e mudo local ---------- */
+.peer__ctrls {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.peer:hover .peer__ctrls {
+  opacity: 1;
+}
+
+/* Se a pessoa está mutada por mim, o botão fica sempre visível. */
+.peer__ctrls:has(.peer__ctrl--on) {
+  opacity: 1;
+}
+
+.peer__ctrl {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.peer__ctrl svg {
+  width: 15px;
+  height: 15px;
+}
+
+.peer__ctrl:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.peer__ctrl--on {
+  color: var(--neon);
+}
+
+.peer-vol {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 2px 14px 9px 46px;
+  list-style: none;
+}
+
+.peer-vol__range {
+  flex: 1;
+  accent-color: var(--neon);
+  height: 4px;
+  cursor: pointer;
+}
+
+.peer-vol__val {
+  font-size: 11px;
+  color: var(--text-faint);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Sub-salas (canais de voz) ---------- */
+.sidebar__section-label--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chip-btn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--neon-soft);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.chip-btn:hover {
+  border-color: var(--neon);
+  color: var(--neon);
+  background: var(--neon-veil);
+}
+
+.canal-criar {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 14px 10px;
+}
+
+.canal-criar input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.canal-criar input:focus {
+  outline: none;
+  border-color: var(--neon);
+}
+
+.canal-criar__acoes {
+  display: flex;
+  gap: 7px;
+}
+
+.canal-criar__acoes .btn {
+  flex: 1;
+}
+
+.canal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 5px;
+  margin-top: 3px;
+  color: var(--violet-soft);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.canal__nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.canal__nome svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.canal__nome span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canal__count {
+  color: var(--text-faint);
+  font-weight: 700;
+}
+
+.canal--atual {
+  color: var(--neon-soft);
+}
+
+.canal--atual .canal__nome svg {
+  color: var(--neon);
+  opacity: 1;
+}
+
+.canal__entrar {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.canal__entrar svg {
+  width: 14px;
+  height: 14px;
+}
+
+.canal__entrar:hover {
+  border-color: var(--neon);
+  color: var(--neon);
+  background: var(--neon-veil);
+}
+
+.peer--self .peer__name {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* ---------- Avatares ---------- */
 
 .avatar {

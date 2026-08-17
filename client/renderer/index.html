@@ -60,7 +60,21 @@
           <div id="connection-dot" class="dot dot--ok" title="Conectado"></div>
         </header>
 
-        <div class="sidebar__section-label">Na sala</div>
+        <div class="sidebar__section-label sidebar__section-label--row">
+          <span>Na sala</span>
+          <button id="btn-criar-canal" class="chip-btn" type="button" title="Criar uma sub-sala de voz">
+            + sub-sala
+          </button>
+        </div>
+
+        <div id="canal-criar" class="canal-criar hidden">
+          <input id="input-canal" type="text" maxlength="24" placeholder="Nome da sub-sala" />
+          <div class="canal-criar__acoes">
+            <button id="btn-canal-ok" class="btn btn--primary btn--sm" type="button">Criar</button>
+            <button id="btn-canal-cancel" class="btn btn--ghost btn--sm" type="button">Cancelar</button>
+          </div>
+        </div>
+
         <ul id="peer-list" class="peer-list"></ul>
 
         <footer class="self-bar">

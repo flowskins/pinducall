@@ -207,6 +207,7 @@ const handlers = {
       routerRtpCapabilities: room.router.rtpCapabilities,
       peers: room.listPeers(peer.id),
       chatHistory: room.chatHistory(),
+      canais: room.channelsSummary(),
     };
   },
 
@@ -333,6 +334,25 @@ const handlers = {
     const { peer, room } = session.requirePeer();
     session.checkChatRate();
     return room.postChatMessage(peer, data.text);
+  },
+
+  // ---------------------------------------------------------------------------
+  // Sub-salas (canais de voz / breakout)
+  // ---------------------------------------------------------------------------
+
+  async listarCanais(session) {
+    const { room } = session.requirePeer();
+    return { canais: room.channelsSummary() };
+  },
+
+  async criarCanal(session, data) {
+    const { peer, room } = session.requirePeer();
+    return room.criarCanal(peer, data.nome);
+  },
+
+  async entrarCanal(session, data) {
+    const { peer, room } = session.requirePeer();
+    return room.entrarCanal(peer, String(data.canalId ?? ''));
   },
 
   /**

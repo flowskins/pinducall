@@ -40,6 +40,8 @@ export class RoomClient extends Emitter {
 
     this.peerId = null;
     this.roomId = null;
+    /** Sub-sala (canal de voz) em que estou agora. */
+    this.channel = 'principal';
 
     this.micProducer = null;
     this.screenProducer = null;
@@ -71,6 +73,9 @@ export class RoomClient extends Emitter {
     this.signaling.on('notify:timerFinished', (data) => this.emit('timerFinished', data));
     this.signaling.on('notify:djUpdate', (data) => this.emit('djUpdate', data));
     this.signaling.on('notify:djCommand', (data) => this.emit('djCommand', data));
+
+    // Sub-salas: mudou a lista/contagem de canais.
+    this.signaling.on('notify:canaisUpdate', (data) => this.emit('canais', data.canais ?? []));
 
     this.signaling.on('notify:newProducer', async ({ producerId }) => {
       try {
@@ -124,6 +129,7 @@ export class RoomClient extends Emitter {
 
     this.peerId = result.peerId;
     this.roomId = result.roomId;
+    this.channel = 'principal';
 
     // Manda o avatar escolhido para os outros verem (o join nasce sem ele).
     if (this.state.avatar) {
@@ -135,8 +141,9 @@ export class RoomClient extends Emitter {
 
     this.emit('joined', result);
 
-    // Começa a receber quem já estava na sala.
+    // Começa a receber quem já estava na sala — mas só quem está na MINHA sub-sala.
     for (const peer of result.peers) {
+      if ((peer.state?.channel ?? 'principal') !== this.channel) continue;
       for (const producer of peer.producers ?? []) {
         try {
           await this.#consume(producer.id);
@@ -147,6 +154,37 @@ export class RoomClient extends Emitter {
     }
 
     return result;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sub-salas (canais de voz / breakout)
+  // ---------------------------------------------------------------------------
+
+  /** Cria uma sub-sala e já entra nela. */
+  async criarCanal(nome) {
+    const canal = await this.signaling.request('criarCanal', { nome });
+    await this.entrarCanal(canal.id);
+    return canal;
+  }
+
+  /**
+   * Troca de sub-sala. O servidor derruba (via consumerClosed) tudo o que eu
+   * consumia no canal antigo; aqui eu só passo a consumir a mídia do novo canal.
+   */
+  async entrarCanal(canalId) {
+    const res = await this.signaling.request('entrarCanal', { canalId });
+    this.channel = res.canal;
+
+    for (const p of res.producers ?? []) {
+      try {
+        await this.#consume(p.producerId);
+      } catch (error) {
+        console.error('[room] falha ao consumir producer da sub-sala:', error);
+      }
+    }
+
+    this.emit('canalEntrou', { canal: res.canal });
+    return res;
   }
 
   async leave() {

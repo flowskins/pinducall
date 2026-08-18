@@ -295,7 +295,7 @@ function ligarAvisosDeAtualizacao() {
       );
     } else if (info.status === 'disponivel-manual') {
       toastAcao(
-        `Saiu a versão ${info.versao ?? ''} do PinduCcall.`.trim(),
+        `Saiu a versão ${info.versao ?? ''} do CAUCALL.`.trim(),
         'Baixar',
         () => window.pinducall.update.abrirDownload(),
         'info',
@@ -319,7 +319,7 @@ async function loadSettings() {
   // mais nenhum endereço salvo — nem os de teste local que sobraram por aí. Isso
   // deixa a entrada sem pedir/mostrar IP e mata de vez o "conectando no localhost".
   const info = await window.pinducall.app.info();
-  el.appVersion.textContent = `PinduCcall ${info.version} - Electron ${info.electron}`;
+  el.appVersion.textContent = `CAUCALL ${info.version}`;
   state.defaultServerUrl = info.defaultServerUrl ?? state.settings.serverUrl ?? '';
   state.serverUrl = state.defaultServerUrl;
   montarModosDeCaptura(info);
@@ -1859,7 +1859,7 @@ const DICA_CAMERA =
   'Serve para transmitir o que o Windows não deixa copiar. Programa com trava de cópia '
   + '(o Tibia, por exemplo) não pode ser capturado por ninguém de fora — mas se o OBS já '
   + 'consegue mostrar esse jogo, ligue nele a "Câmera Virtual" e escolha ela aqui: o OBS '
-  + 'captura, o PinduCcall transmite.';
+  + 'captura, o CAUCALL transmite.';
 
 const DICA_GENERICA =
   'O Windows não conseguiu ler a imagem desta janela. Tente, nesta ordem: trocar o "Modo de ' +

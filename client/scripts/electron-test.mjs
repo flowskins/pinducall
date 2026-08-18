@@ -97,7 +97,7 @@ async function main() {
     });
 
     check('a janela principal abre', Boolean(window));
-    check('o título da janela é PinduCcall', (await window.title()) === 'PinduCcall');
+    check('o título da janela é CAUCALL', (await window.title()) === 'CAUCALL');
 
     // --- Ponte do preload ----------------------------------------------------
     const bridge = await window.evaluate(() => ({
@@ -238,7 +238,7 @@ async function main() {
     check('os ícones dos botões foram renderizados', (await window.innerHTML('#btn-mic')).includes('<svg'));
     check(
       'a versão aparece nas configurações',
-      (await window.textContent('#app-version')).includes(`PinduCcall ${expectedVersion}`),
+      (await window.textContent('#app-version')).includes(`CAUCALL ${expectedVersion}`),
       await window.textContent('#app-version'),
     );
 
@@ -284,7 +284,7 @@ async function main() {
     const osTitle = await second.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0]?.getTitle(),
     );
-    check('o título da janela identifica o perfil', osTitle === 'PinduCcall (teste)', String(osTitle));
+    check('o título da janela identifica o perfil', osTitle === 'CAUCALL (teste)', String(osTitle));
 
     await window.evaluate(() => window.pinducall.settings.set({ displayName: 'Segunda pessoa' }));
 

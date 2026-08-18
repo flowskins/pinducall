@@ -1,6 +1,6 @@
 /* ============================================================
-   PinduCcall — tema NEON
-   Verde luminoso + roxo elétrico sobre preto espacial.
+   CAUCALL — tema
+   Vermelho sobre roxo escuro quase preto.
 
    Regra de performance seguida em todo o arquivo: animação contínua
    só em `transform` e `opacity` (a GPU resolve sozinha). Sombras e
@@ -24,11 +24,11 @@
   --bg-400: #343d61;
 
   /* Verde luminoso — a cor da ação e do "ao vivo" */
-  --neon: #33ff33;
-  --neon-soft: #8cff8c;
-  --neon-deep: #1fcc1f;
-  --neon-glow: rgba(51, 255, 51, 0.55);
-  --neon-veil: rgba(51, 255, 51, 0.12);
+  --neon: #ff2d4a;
+  --neon-soft: #ff8a9c;
+  --neon-deep: #cc1f38;
+  --neon-glow: rgba(255, 45, 74, 0.55);
+  --neon-veil: rgba(255, 45, 74, 0.12);
 
   /* Roxo elétrico — a cor da identidade e das bordas */
   --violet: #b14dff;
@@ -55,7 +55,7 @@
 
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
   --glow-violet: 0 0 22px rgba(177, 77, 255, 0.35);
-  --glow-neon: 0 0 22px rgba(51, 255, 51, 0.35);
+  --glow-neon: 0 0 22px rgba(255, 45, 74, 0.35);
 
   --sidebar-w: 276px;
   --chat-w: 320px;
@@ -211,7 +211,7 @@ body::before {
   height: 70vw;
   left: -20vw;
   top: -26vw;
-  background: radial-gradient(circle, rgba(51, 255, 51, 0.17), rgba(51, 255, 51, 0.05) 42%, transparent 68%);
+  background: radial-gradient(circle, rgba(255, 45, 74, 0.17), rgba(255, 45, 74, 0.05) 42%, transparent 68%);
   animation:
     deriva-a 38s ease-in-out infinite alternate,
     respira 13s ease-in-out infinite;
@@ -222,7 +222,7 @@ body::before {
   height: 58vw;
   right: -18vw;
   bottom: -22vw;
-  background: radial-gradient(circle, rgba(51, 255, 51, 0.14), rgba(31, 204, 31, 0.04) 45%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 45, 74, 0.14), rgba(255, 45, 74, 0.05) 45%, transparent 70%);
   animation:
     deriva-b 47s ease-in-out infinite alternate,
     respira 17s ease-in-out infinite reverse;
@@ -233,7 +233,7 @@ body::before {
   height: 44vw;
   left: 42vw;
   top: 34vh;
-  background: radial-gradient(circle, rgba(140, 255, 140, 0.1), transparent 66%);
+  background: radial-gradient(circle, rgba(177, 77, 255, 0.1), transparent 66%);
   animation:
     deriva-c 29s ease-in-out infinite alternate,
     respira 9s ease-in-out infinite;
@@ -415,14 +415,24 @@ body::before {
 }
 
 .brand__art {
-  width: 236px;
+  width: 148px;
   max-width: 100%;
   height: auto;
   display: block;
   filter:
-    drop-shadow(0 0 26px rgba(51, 255, 51, 0.35))
+    drop-shadow(0 0 26px rgba(255, 45, 74, 0.35))
     drop-shadow(0 10px 22px rgba(0, 0, 0, 0.6));
   animation: breathe 4.5s ease-in-out infinite;
+  -webkit-user-drag: none;
+}
+
+.brand__logo {
+  width: 210px;
+  max-width: 78%;
+  height: auto;
+  display: block;
+  margin-top: 6px;
+  filter: drop-shadow(0 2px 10px rgba(255, 45, 74, 0.3));
   -webkit-user-drag: none;
 }
 
@@ -487,10 +497,10 @@ body::before {
 
 .field__input:focus {
   border-color: var(--neon);
-  background: rgba(51, 255, 51, 0.04);
+  background: rgba(255, 45, 74, 0.04);
   box-shadow:
-    0 0 0 3px rgba(51, 255, 51, 0.13),
-    0 0 18px rgba(51, 255, 51, 0.22);
+    0 0 0 3px rgba(255, 45, 74, 0.13),
+    0 0 18px rgba(255, 45, 74, 0.22);
 }
 
 .field__input--sm {
@@ -510,7 +520,7 @@ select.field__input option {
 }
 
 select.field__input option:checked {
-  background: linear-gradient(0deg, rgba(51, 255, 51, 0.25), rgba(51, 255, 51, 0.25));
+  background: linear-gradient(0deg, rgba(255, 45, 74, 0.25), rgba(255, 45, 74, 0.25));
   color: #ffffff;
 }
 
@@ -603,7 +613,7 @@ select.field__input option:checked {
 
 .room:hover {
   border-color: var(--neon-deep);
-  background: rgba(51, 255, 51, 0.05);
+  background: rgba(255, 45, 74, 0.05);
 }
 
 .room:focus-visible {
@@ -613,8 +623,8 @@ select.field__input option:checked {
 
 .room--active {
   border-color: var(--neon);
-  background: rgba(51, 255, 51, 0.09);
-  box-shadow: 0 0 14px rgba(51, 255, 51, 0.18);
+  background: rgba(255, 45, 74, 0.09);
+  box-shadow: 0 0 14px rgba(255, 45, 74, 0.18);
 }
 
 .room__name {
@@ -709,9 +719,9 @@ select.field__input option:checked {
   gap: 8px;
   margin: 14px 19px 0;
   padding: 16px;
-  border: 1px solid rgba(51, 255, 51, 0.28);
+  border: 1px solid rgba(255, 45, 74, 0.28);
   border-radius: 12px;
-  background: rgba(51, 255, 51, 0.05);
+  background: rgba(255, 45, 74, 0.05);
   text-align: center;
 }
 
@@ -765,7 +775,7 @@ select.field__input option:checked {
 
 .arquivo:hover {
   border-color: var(--neon-deep);
-  background: rgba(51, 255, 51, 0.06);
+  background: rgba(255, 45, 74, 0.06);
 }
 
 .arquivo__icone {
@@ -848,7 +858,7 @@ select.field__input option:checked {
   width: 0;
   border-radius: 3px;
   background: linear-gradient(90deg, var(--violet), var(--neon));
-  box-shadow: 0 0 12px rgba(51, 255, 51, 0.45);
+  box-shadow: 0 0 12px rgba(255, 45, 74, 0.45);
   transition: width 0.15s linear;
 }
 
@@ -866,7 +876,7 @@ select.field__input option:checked {
   font-weight: 700;
   font-size: 14px;
   pointer-events: none;
-  box-shadow: 0 0 30px rgba(51, 255, 51, 0.25) inset;
+  box-shadow: 0 0 30px rgba(255, 45, 74, 0.25) inset;
 }
 
 .linkbox {
@@ -881,7 +891,7 @@ select.field__input option:checked {
   padding: 11px 13px;
   border-radius: 10px;
   border: 1px solid var(--neon-deep);
-  background: rgba(51, 255, 51, 0.06);
+  background: rgba(255, 45, 74, 0.06);
   color: var(--neon-soft);
   font-family: var(--mono);
   font-size: 12.5px;
@@ -891,7 +901,7 @@ select.field__input option:checked {
 .linkbox__input:focus {
   outline: none;
   border-color: var(--neon);
-  box-shadow: 0 0 14px rgba(51, 255, 51, 0.22);
+  box-shadow: 0 0 14px rgba(255, 45, 74, 0.22);
 }
 
 .modal__panel--narrow {
@@ -936,7 +946,7 @@ select.field__input option:checked {
 
 /* Opção em destaque (ex.: "voz limpa"). */
 .checkbox--destaque {
-  border: 1px solid rgba(51, 255, 51, 0.3);
+  border: 1px solid rgba(255, 45, 74, 0.3);
   background: var(--neon-veil);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
@@ -1085,10 +1095,10 @@ select.field__input option:checked {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, #33ff33 0%, #29ee29 55%, #1fd41f 100%);
-  color: #04140a;
+  background: linear-gradient(135deg, #ff3a56 0%, #e02340 55%, #c01a34 100%);
+  color: #1e050b;
   box-shadow:
-    0 0 18px rgba(51, 255, 51, 0.35),
+    0 0 18px rgba(255, 45, 74, 0.35),
     0 6px 24px rgba(177, 77, 255, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
@@ -1096,7 +1106,7 @@ select.field__input option:checked {
 .btn--primary:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow:
-    0 0 30px rgba(51, 255, 51, 0.6),
+    0 0 30px rgba(255, 45, 74, 0.6),
     0 0 58px rgba(177, 77, 255, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
@@ -1150,7 +1160,7 @@ select.field__input option:checked {
 .icon-btn:hover {
   background: var(--neon-veil);
   color: var(--neon);
-  box-shadow: inset 0 0 0 1px rgba(51, 255, 51, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255, 45, 74, 0.28);
 }
 
 .icon-btn:hover svg {
@@ -1284,7 +1294,7 @@ select.field__input option:checked {
   font-size: 16px;
   letter-spacing: 0.3px;
   color: var(--neon);
-  text-shadow: 0 0 14px rgba(51, 255, 51, 0.5);
+  text-shadow: 0 0 14px rgba(255, 45, 74, 0.5);
 }
 
 .sidebar__meta {
@@ -1314,7 +1324,7 @@ select.field__input option:checked {
 
 .dot--ok {
   background: var(--neon);
-  box-shadow: 0 0 10px var(--neon), 0 0 20px rgba(51, 255, 51, 0.5);
+  box-shadow: 0 0 10px var(--neon), 0 0 20px rgba(255, 45, 74, 0.5);
 }
 
 /* Onda que sai do ponto quando está conectado. */
@@ -1421,13 +1431,13 @@ select.field__input option:checked {
 }
 
 .peer--speaking {
-  background: rgba(51, 255, 51, 0.07);
+  background: rgba(255, 45, 74, 0.07);
   box-shadow: inset 2px 0 0 var(--neon);
 }
 
 .peer--speaking .peer__name {
   color: var(--neon-soft);
-  text-shadow: 0 0 10px rgba(51, 255, 51, 0.4);
+  text-shadow: 0 0 10px rgba(255, 45, 74, 0.4);
 }
 
 .peer__badges {
@@ -1722,7 +1732,7 @@ select.field__input option:checked {
 .avatar--speaking {
   box-shadow:
     0 0 0 2px var(--neon),
-    0 0 18px rgba(51, 255, 51, 0.6);
+    0 0 18px rgba(255, 45, 74, 0.6);
 }
 
 .avatar--speaking::after {
@@ -1879,7 +1889,7 @@ select.field__input option:checked {
   display: block;
   opacity: 0.9;
   animation: float 5s ease-in-out infinite;
-  filter: drop-shadow(0 0 26px rgba(51, 255, 51, 0.3)) drop-shadow(0 12px 26px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 26px rgba(255, 45, 74, 0.3)) drop-shadow(0 12px 26px rgba(0, 0, 0, 0.6));
   -webkit-user-drag: none;
 }
 
@@ -1910,7 +1920,7 @@ select.field__input option:checked {
 .tile:hover {
   border-color: var(--neon);
   box-shadow:
-    0 0 26px rgba(51, 255, 51, 0.3),
+    0 0 26px rgba(255, 45, 74, 0.3),
     0 0 60px rgba(177, 77, 255, 0.18);
   transform: translateY(-2px);
 }
@@ -1920,8 +1930,8 @@ select.field__input option:checked {
   aspect-ratio: auto;
   height: 100%;
   cursor: zoom-out;
-  border-color: rgba(51, 255, 51, 0.5);
-  box-shadow: 0 0 34px rgba(51, 255, 51, 0.22);
+  border-color: rgba(255, 45, 74, 0.5);
+  box-shadow: 0 0 34px rgba(255, 45, 74, 0.22);
 }
 
 .tile video {
@@ -1941,7 +1951,7 @@ select.field__input option:checked {
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(51, 255, 51, 0.25);
+  border: 1px solid rgba(255, 45, 74, 0.25);
   border-radius: 9px;
   background: rgba(5, 6, 11, 0.7);
   backdrop-filter: blur(8px);
@@ -1992,7 +2002,7 @@ select.field__input option:checked {
   bottom: 11px;
   background: rgba(5, 6, 11, 0.78);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(51, 255, 51, 0.25);
+  border: 1px solid rgba(255, 45, 74, 0.25);
   padding: 5px 11px;
   border-radius: 999px;
   font-size: 12px;
@@ -2033,11 +2043,11 @@ select.field__input option:checked {
   bottom: 18px;
   width: 272px;
   background: #000;
-  border: 1px solid rgba(51, 255, 51, 0.4);
+  border: 1px solid rgba(255, 45, 74, 0.4);
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow:
-    0 0 26px rgba(51, 255, 51, 0.25),
+    0 0 26px rgba(255, 45, 74, 0.25),
     0 18px 44px rgba(0, 0, 0, 0.75);
   z-index: 10;
   transition: width 0.22s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.25s;
@@ -2046,7 +2056,7 @@ select.field__input option:checked {
 
 .self-preview:hover {
   box-shadow:
-    0 0 38px rgba(51, 255, 51, 0.42),
+    0 0 38px rgba(255, 45, 74, 0.42),
     0 18px 44px rgba(0, 0, 0, 0.75);
 }
 
@@ -2083,8 +2093,8 @@ select.field__input option:checked {
   align-items: center;
   gap: 8px;
   padding: 5px 6px 5px 11px;
-  background: linear-gradient(90deg, rgba(51, 255, 51, 0.1), rgba(177, 77, 255, 0.1));
-  border-top: 1px solid rgba(51, 255, 51, 0.22);
+  background: linear-gradient(90deg, rgba(255, 45, 74, 0.1), rgba(177, 77, 255, 0.1));
+  border-top: 1px solid rgba(255, 45, 74, 0.22);
 }
 
 .self-preview__label {
@@ -2107,12 +2117,12 @@ select.field__input option:checked {
   border-radius: 999px;
   background: rgba(5, 6, 11, 0.8);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(51, 255, 51, 0.3);
+  border: 1px solid rgba(255, 45, 74, 0.3);
   font-family: var(--mono);
   font-size: 10.5px;
   line-height: 1.5;
   color: var(--neon-soft);
-  text-shadow: 0 0 10px rgba(51, 255, 51, 0.5);
+  text-shadow: 0 0 10px rgba(255, 45, 74, 0.5);
   white-space: nowrap;
   pointer-events: none;
 }
@@ -2258,7 +2268,7 @@ select.field__input option:checked {
 
 .chat__input:focus {
   border-color: var(--neon);
-  box-shadow: 0 0 16px rgba(51, 255, 51, 0.22);
+  box-shadow: 0 0 16px rgba(255, 45, 74, 0.22);
 }
 
 /* ============================================================
@@ -2437,7 +2447,7 @@ select.field__input option:checked {
 
 .pick-emoji.picked {
   border-color: var(--neon);
-  background: rgba(51, 255, 51, 0.12);
+  background: rgba(255, 45, 74, 0.12);
   box-shadow: 0 0 0 1px var(--neon);
 }
 
@@ -2520,7 +2530,7 @@ select.field__input option:checked {
 
 .tab--active {
   color: var(--neon);
-  text-shadow: 0 0 12px rgba(51, 255, 51, 0.45);
+  text-shadow: 0 0 12px rgba(255, 45, 74, 0.45);
 }
 
 .tab--active::after {
@@ -2561,10 +2571,10 @@ select.field__input option:checked {
 
 .source--selected {
   border-color: var(--neon);
-  background: rgba(51, 255, 51, 0.1);
+  background: rgba(255, 45, 74, 0.1);
   box-shadow:
     0 0 0 1px var(--neon),
-    0 0 26px rgba(51, 255, 51, 0.35);
+    0 0 26px rgba(255, 45, 74, 0.35);
 }
 
 .source--selected .source__name {
@@ -2624,8 +2634,8 @@ select.field__input option:checked {
 .meter__fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--neon), #a6ff2e 55%, var(--warn));
-  box-shadow: 0 0 14px rgba(51, 255, 51, 0.7);
+  background: linear-gradient(90deg, var(--neon), #ff3a56 55%, var(--warn));
+  box-shadow: 0 0 14px rgba(255, 45, 74, 0.7);
   transition: width 0.08s linear;
 }
 
@@ -2699,7 +2709,7 @@ select.field__input option:checked {
   font-weight: 700;
   cursor: pointer;
   color: #06210a;
-  background: linear-gradient(180deg, var(--neon), var(--neon-deep, #1fcc1f));
+  background: linear-gradient(180deg, var(--neon), var(--neon-deep, #cc1f38));
 }
 
 .toast__acao:hover {
@@ -2820,7 +2830,7 @@ select.field__input option:checked {
 
 .ttab--active {
   color: var(--neon);
-  text-shadow: 0 0 12px rgba(51, 255, 51, 0.45);
+  text-shadow: 0 0 12px rgba(255, 45, 74, 0.45);
 }
 
 .ttab--active::after {
@@ -2867,14 +2877,14 @@ select.field__input option:checked {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0%;
-  background: linear-gradient(90deg, rgba(51, 255, 51, 0.16), rgba(51, 255, 51, 0.05));
+  background: linear-gradient(90deg, rgba(255, 45, 74, 0.16), rgba(255, 45, 74, 0.05));
   pointer-events: none;
   transition: width 0.25s linear;
 }
 
 .timer--rodando {
-  border-color: rgba(51, 255, 51, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(51, 255, 51, 0.12);
+  border-color: rgba(255, 45, 74, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(255, 45, 74, 0.12);
 }
 
 .timer--acabando .timer__bar {
@@ -2925,7 +2935,7 @@ select.field__input option:checked {
 
 .timer--rodando .timer__tempo {
   color: var(--neon);
-  text-shadow: 0 0 10px rgba(51, 255, 51, 0.4);
+  text-shadow: 0 0 10px rgba(255, 45, 74, 0.4);
 }
 
 .timer__acoes {
@@ -3053,8 +3063,8 @@ select.field__input option:checked {
   gap: 9px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(51, 255, 51, 0.07);
-  border: 1px solid rgba(51, 255, 51, 0.28);
+  background: rgba(255, 45, 74, 0.07);
+  border: 1px solid rgba(255, 45, 74, 0.28);
 }
 
 .dj__track {
@@ -3162,7 +3172,7 @@ select.field__input option:checked {
 }
 
 .dj__item--atual {
-  background: rgba(51, 255, 51, 0.1);
+  background: rgba(255, 45, 74, 0.1);
   color: var(--neon-soft);
   font-weight: 600;
 }
@@ -3214,7 +3224,7 @@ select.field__input option:checked {
 
 .split__log:focus {
   border-color: var(--neon);
-  box-shadow: 0 0 16px rgba(51, 255, 51, 0.2);
+  box-shadow: 0 0 16px rgba(255, 45, 74, 0.2);
 }
 
 .split__actions {

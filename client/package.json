@@ -1,11 +1,11 @@
 {
   "name": "pinducall",
-  "productName": "PinduCcall",
-  "version": "1.8.0",
+  "productName": "CAUCALL",
+  "version": "1.9.0",
   "private": true,
   "description": "Voz, compartilhamento de tela e chat em sala privada hospedada no seu PC",
   "author": {
-    "name": "PinduCcall"
+    "name": "CAUCALL"
   },
   "main": "electron/main.js",
   "scripts": {
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.pinducall.desktop",
-    "productName": "PinduCcall",
+    "productName": "CAUCALL",
     "files": [
       "electron/**/*",
       "renderer/index.html",
@@ -80,15 +80,15 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "PinduCcall",
-      "artifactName": "PinduCcall-Setup.${ext}"
+      "shortcutName": "CAUCALL",
+      "artifactName": "CAUCALL-Setup.${ext}"
     },
     "portable": {
-      "artifactName": "PinduCcall-Portable.${ext}"
+      "artifactName": "CAUCALL-Portable.${ext}"
     },
     "protocols": [
       {
-        "name": "PinduCcall",
+        "name": "CAUCALL",
         "schemes": [
           "pinduccall"
         ]

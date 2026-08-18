@@ -1,18 +1,18 @@
 ﻿============================================================
  PinduCcall - diagnostico de captura
- 14/08/2026 16:11:54
+ 17/08/2026 23:46:56
 ============================================================
 
 Windows: Microsoft Windows 11 Pro - build 26200
 Versao:  25H2
 Video:   AMD Radeon RX 9070 XT (driver 32.0.31035.1003)
 
-Janelas visiveis com titulo: 12
+Janelas visiveis com titulo: 18
 
 >>> JANELAS DO JOGO
 
-  Titulo........: Tibia - Messiah Two
-  Programa......: client (pid 28220)
+  Titulo........: Tibia - Caucau Abravanel
+  Programa......: client (pid 35308)
   Tamanho.......: 160x28
   Escondida(DWM): 0
   TRAVA DE COPIA: WDA_MONITOR - TRAVADA: sai preta em qualquer captura
@@ -25,17 +25,23 @@ Janelas visiveis com titulo: 12
 ------------------------------------------------------------
 LISTA COMPLETA (titulo | programa | trava)
 ------------------------------------------------------------
-  (48) WhatsApp - Google Chrome                 | chrome             | livre
+  * alterar volume do amigo - Bloco de notas    | Notepad            | livre
+  ⚫ Partida encontrada                          | FACEIT             | livre
   amd dvr overlay                               | amdow              | livre
   C:\Windows\System32\cmd.exe                   | WindowsTerminal    | livre
+  ChatGPT Image 17 de ago. de 2026, 23_12_20.png @ 88,7% (segurando uma placa de madeira escrito CHUPAJANJA, RGB/8#) * | Photoshop          | livre
   Claude                                        | claude             | livre
+  Criar mago de porcelana - Google Chrome       | chrome             | livre
+  Downloads – Explorador de Arquivos            | explorer           | livre
   Experiência de Entrada do Windows             | TextInputHost      | livre
+  MINGW64:/c/Users/tyreo/Desktop/teamlink                                                   | mintty             | livre
+  PinduCcall                                    | PinduCcall         | livre
   PinduCcall - diagnostico de captura           | WindowsTerminal    | livre
-  PinduCcall - servidor da sala                 | WindowsTerminal    | livre
   Program Manager                               | explorer           | livre
-  Sign In - Google Chrome                       | chrome             | livre
+  Sala 01 | Made 1n Minas - Discord             | Discord            | livre
   Spotify Premium                               | Spotify            | livre
+  Steam                                         | steamwebhelper     | livre
   teamlink – Explorador de Arquivos             | explorer           | livre
-  Tibia - Messiah Two                           | client             | TRAVADA
+  Tibia - Caucau Abravanel                      | client             | TRAVADA
 
 Arquivo salvo em: C:\Users\tyreo\Desktop\teamlink\client\scripts\diagnostico-captura.txt

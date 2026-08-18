@@ -117,7 +117,7 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     // Com perfil extra, o nome vai no título para você distinguir as janelas.
-    title: profileName ? `PinduCcall (${profileName})` : 'PinduCcall',
+    title: profileName ? `CAUCALL (${profileName})` : 'CAUCALL',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -136,7 +136,7 @@ function createWindow() {
   if (profileName) {
     mainWindow.on('page-title-updated', (event) => {
       event.preventDefault();
-      mainWindow.setTitle(`PinduCcall (${profileName})`);
+      mainWindow.setTitle(`CAUCALL (${profileName})`);
     });
   }
 
@@ -348,7 +348,7 @@ function registerIpc() {
 const INSTRUCAO_TIBIA =
   'Trocar o motor gráfico não resolve mais: a trava está ligada em DirectX 5, DirectX 9 e '
   + 'OpenGL. A saída é a aba "Câmera / OBS" aqui do lado — no OBS, clique em Iniciar Câmera '
-  + 'Virtual e escolha ela aqui. O OBS captura o jogo, o PinduCcall transmite.';
+  + 'Virtual e escolha ela aqui. O OBS captura o jogo, o CAUCALL transmite.';
 
 const JANELAS_CONHECIDAS = [
   { padrao: /\btibia\b/i, instrucao: INSTRUCAO_TIBIA },
@@ -466,7 +466,7 @@ async function iniciarObsTibia() {
     throw new Error(
       'não consegui falar com o OBS. Abra o OBS uma vez, vá em Ferramentas → '
       + 'Configurações do Servidor WebSocket, marque "Ativar" e confira se a porta e a '
-      + 'senha batem com as das configurações do PinduCcall.',
+      + 'senha batem com as das configurações do CAUCALL.',
     );
   }
 

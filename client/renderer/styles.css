@@ -157,10 +157,13 @@ body {
 }
 
 body {
-  /* Roxo escuro liso, com um leve clareamento no topo para dar profundidade
-     sem desenho nenhum atrás da interface. */
+  /* Cenário de ruínas ao fundo (as tochas vermelhas casam com o tema), com um
+     véu escuro por cima pra interface continuar legível. A imagem fica presa
+     (fixed) e cobre a tela toda, atrás de tudo. */
   background:
-    radial-gradient(120% 80% at 50% -10%, #180f30 0%, #0d0920 45%, var(--bg-void) 100%);
+    radial-gradient(125% 95% at 50% 42%, rgba(8, 5, 18, 0.72) 0%, rgba(8, 5, 18, 0.5) 46%, rgba(8, 5, 18, 0.32) 100%),
+    url("assets/bg-app.webp") center center / cover no-repeat fixed,
+    var(--bg-void);
   color: var(--text);
   font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 14px;

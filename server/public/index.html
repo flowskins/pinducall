@@ -331,18 +331,18 @@
       }
 
       .hero__arte img,
-      .hero__arte video {
+      .hero__arte canvas {
         position: relative;
         width: min(100%, 440px);
-        filter: drop-shadow(0 24px 50px rgba(0, 0, 0, 0.65));
+        height: auto;
+        filter: drop-shadow(0 22px 46px rgba(0, 0, 0, 0.55));
         animation: flutua 6s ease-in-out infinite;
       }
 
-      /* Vídeo do hero: o fundo preto some com a mistura "screen" (máscara de
-         camada) sobre o fundo escuro da página. */
+      /* O vídeo fica escondido; quem aparece é o canvas, onde o fundo preto é
+         removido pixel a pixel (transparência de verdade, sem depender de blend). */
       .hero__arte video {
-        mix-blend-mode: screen;
-        filter: none;
+        display: none;
       }
 
       @keyframes flutua {
@@ -689,7 +689,7 @@
       <!-- ================= Hero ================= -->
       <div class="wrap hero">
         <div>
-          <span class="selo"><i></i> app para Windows · versão 1.9.0</span>
+          <span class="selo"><i></i> app para Windows · versão 1.9.2</span>
           <h1>Sua turma na sua sala, <em>sem terceiro no meio</em>.</h1>
           <p class="lead">
             Voz, compartilhamento de tela com som e chat de texto para até 10 pessoas por sala.
@@ -704,14 +704,16 @@
         </div>
 
         <div class="hero__arte">
+          <canvas id="hero-canvas" width="440" height="436" aria-label="Mascote do CAUCALL"></canvas>
           <video
+            id="hero-video"
             src="imagens/caucall-hero.mp4"
-            poster="imagens/caucall-hero.webp"
+            crossorigin="anonymous"
+            preload="auto"
             autoplay
             loop
             muted
             playsinline
-            aria-label="Mascote do CAUCALL"
           ></video>
         </div>
       </div>
@@ -881,7 +883,7 @@
                 direto do arquivo, sem instalar nada.
               </p>
               <div class="requisitos">
-                <span>versão 1.9.0</span>
+                <span>versão 1.9.2</span>
                 <span>Windows 10/11 x64</span>
                 <span>~90 MB</span>
                 <span>sem cadastro</span>
@@ -1014,5 +1016,57 @@
         <span>Feito para a resenha. Sem anúncio, sem rastreio, sem terceiro no meio.</span>
       </div>
     </footer>
+
+    <script>
+      // Hero: desenha o vídeo num canvas e remove o fundo preto pixel a pixel
+      // (transparência real). Canvas não vira overlay de vídeo por hardware, então
+      // funciona igual em qualquer máquina — sem depender de mix-blend.
+      (function () {
+        var v = document.getElementById('hero-video');
+        var c = document.getElementById('hero-canvas');
+        if (!v || !c) return;
+        var ctx = c.getContext('2d', { willReadFrequently: true });
+        var W = c.width, H = c.height;
+        var tainted = false, started = false;
+
+        // Mostra o mascote estático na hora (o webp já é transparente), pra o
+        // hero nunca ficar vazio enquanto o vídeo carrega.
+        var poster = new Image();
+        poster.crossOrigin = 'anonymous';
+        poster.onload = function () {
+          if (!started) { ctx.clearRect(0, 0, W, H); ctx.drawImage(poster, 0, 0, W, H); }
+        };
+        poster.src = 'imagens/caucall-hero.webp';
+
+        function frame() {
+          if (v.readyState >= 2) {
+            try {
+              ctx.drawImage(v, 0, 0, W, H);
+              if (!tainted) {
+                var img = ctx.getImageData(0, 0, W, H);
+                var a = img.data;
+                for (var i = 0; i < a.length; i += 4) {
+                  var r = a[i], g = a[i + 1], b = a[i + 2];
+                  var m = r > g ? (r > b ? r : b) : g > b ? g : b;
+                  if (m < 22) a[i + 3] = 0;
+                  else if (m < 54) a[i + 3] = ((m - 22) * 255) / 32;
+                }
+                ctx.putImageData(img, 0, 0);
+              }
+              started = true;
+            } catch (e) {
+              // Vídeo "tainted" (sem CORS): cai para a mistura screen no canvas.
+              tainted = true;
+              c.style.mixBlendMode = 'screen';
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+        requestAnimationFrame(frame);
+      })();
+    </script>
   </body>
 </html>

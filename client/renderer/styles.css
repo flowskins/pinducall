@@ -1884,12 +1884,12 @@ select.field__input option:checked {
 }
 
 .stage__empty-mascot {
-  width: 148px;
+  width: 224px;
   height: auto;
   display: block;
-  opacity: 0.9;
+  opacity: 0.96;
   animation: float 5s ease-in-out infinite;
-  filter: drop-shadow(0 0 26px rgba(255, 45, 74, 0.3)) drop-shadow(0 12px 26px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 30px rgba(255, 45, 74, 0.34)) drop-shadow(0 14px 30px rgba(0, 0, 0, 0.6));
   -webkit-user-drag: none;
 }
 

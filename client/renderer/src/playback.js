@@ -6,6 +6,8 @@ export class AudioPlayback {
   #elements = new Map(); // consumerId -> HTMLAudioElement
   #peerVolumes = new Map(); // peerId -> 0..1
   #peerMuted = new Set(); // peerIds silenciados só pra mim (mudo local)
+  #consumerVolumes = new Map(); // consumerId -> 0..1 (ex.: áudio da tela)
+  #consumerMuted = new Set(); // consumerIds silenciados só pra mim
   #outputDeviceId = 'default';
   #deafened = false;
   #masterVolume = 1;
@@ -16,9 +18,10 @@ export class AudioPlayback {
     const element = document.createElement('audio');
     element.autoplay = true;
     element.dataset.peerId = peerId;
+    element.dataset.consumerId = consumerId;
     element.srcObject = new MediaStream([track]);
-    element.volume = this.#volumeFor(peerId);
-    element.muted = this.#mutedFor(peerId);
+    element.volume = this.#volumeFor(peerId, consumerId);
+    element.muted = this.#mutedFor(peerId, consumerId);
 
     // Elementos ficam fora da tela; existem só para tocar o audio.
     element.style.display = 'none';
@@ -54,15 +57,21 @@ export class AudioPlayback {
     }
   }
 
-  #volumeFor(peerId) {
+  #volumeFor(peerId, consumerId) {
     const individual = this.#peerVolumes.get(peerId) ?? 1;
-    return Math.max(0, Math.min(1, individual * this.#masterVolume));
+    const doConsumer = consumerId != null ? this.#consumerVolumes.get(consumerId) ?? 1 : 1;
+    return Math.max(0, Math.min(1, individual * doConsumer * this.#masterVolume));
+  }
+
+  #applyVolume(element) {
+    element.volume = this.#volumeFor(element.dataset.peerId, element.dataset.consumerId);
+    element.muted = this.#mutedFor(element.dataset.peerId, element.dataset.consumerId);
   }
 
   setPeerVolume(peerId, volume) {
     this.#peerVolumes.set(peerId, volume);
     for (const element of this.#elements.values()) {
-      if (element.dataset.peerId === peerId) element.volume = this.#volumeFor(peerId);
+      if (element.dataset.peerId === peerId) this.#applyVolume(element);
     }
   }
 
@@ -70,23 +79,45 @@ export class AudioPlayback {
     return this.#peerVolumes.get(peerId) ?? 1;
   }
 
-  setMasterVolume(volume) {
-    this.#masterVolume = Math.max(0, Math.min(1, volume));
-    for (const element of this.#elements.values()) {
-      element.volume = this.#volumeFor(element.dataset.peerId);
-    }
+  /** Volume de um consumer específico (ex.: o áudio da tela compartilhada). */
+  setConsumerVolume(consumerId, volume) {
+    this.#consumerVolumes.set(consumerId, Math.max(0, Math.min(1, volume)));
+    const element = this.#elements.get(consumerId);
+    if (element) this.#applyVolume(element);
   }
 
-  /** Combina o "silenciar tudo" (deafen) com o mudo local daquela pessoa. */
-  #mutedFor(peerId) {
-    return this.#deafened || this.#peerMuted.has(peerId);
+  getConsumerVolume(consumerId) {
+    return this.#consumerVolumes.get(consumerId) ?? 1;
+  }
+
+  setConsumerMuted(consumerId, muted) {
+    if (muted) this.#consumerMuted.add(consumerId);
+    else this.#consumerMuted.delete(consumerId);
+    const element = this.#elements.get(consumerId);
+    if (element) this.#applyVolume(element);
+  }
+
+  isConsumerMuted(consumerId) {
+    return this.#consumerMuted.has(consumerId);
+  }
+
+  setMasterVolume(volume) {
+    this.#masterVolume = Math.max(0, Math.min(1, volume));
+    for (const element of this.#elements.values()) this.#applyVolume(element);
+  }
+
+  /** Combina o "silenciar tudo" (deafen) com o mudo local daquela pessoa/consumer. */
+  #mutedFor(peerId, consumerId) {
+    return (
+      this.#deafened ||
+      this.#peerMuted.has(peerId) ||
+      (consumerId != null && this.#consumerMuted.has(consumerId))
+    );
   }
 
   setDeafened(deafened) {
     this.#deafened = deafened;
-    for (const element of this.#elements.values()) {
-      element.muted = this.#mutedFor(element.dataset.peerId);
-    }
+    for (const element of this.#elements.values()) this.#applyVolume(element);
   }
 
   /** Mudo local: só afeta o que EU ouço daquela pessoa. */
@@ -94,7 +125,7 @@ export class AudioPlayback {
     if (muted) this.#peerMuted.add(peerId);
     else this.#peerMuted.delete(peerId);
     for (const element of this.#elements.values()) {
-      if (element.dataset.peerId === peerId) element.muted = this.#mutedFor(peerId);
+      if (element.dataset.peerId === peerId) this.#applyVolume(element);
     }
   }
 

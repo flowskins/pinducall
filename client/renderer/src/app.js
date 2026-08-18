@@ -185,6 +185,10 @@ const state = {
   openPeerPanel: null,
   /** Mostrando o campo de criar sub-sala? */
   criandoCanal: false,
+  /** peerId -> consumerId do áudio da tela compartilhada (pra volume separado). */
+  screenAudioByPeer: new Map(),
+  /** consumerIds de vídeo que EU escolhi não assistir (ocultos + pausados). */
+  hiddenTiles: new Set(),
 };
 
 // Paleta neon: verdes e roxos com brilho, para combinar com o tema.
@@ -1033,6 +1037,8 @@ el.btnPreviewStop.addEventListener('click', () => {
 room.on('track', ({ consumerId, peerId, source, kind, track }) => {
   if (kind === 'audio') {
     playback.add(consumerId, peerId, track);
+    // Guarda o áudio da tela separado do microfone: dá pra ter volume próprio.
+    if (source === 'screen-audio') state.screenAudioByPeer.set(peerId, consumerId);
     return;
   }
 
@@ -1042,6 +1048,10 @@ room.on('track', ({ consumerId, peerId, source, kind, track }) => {
 room.on('trackEnded', ({ consumerId }) => {
   playback.remove(consumerId);
   removeTile(consumerId);
+  state.hiddenTiles.delete(consumerId);
+  for (const [pid, cid] of state.screenAudioByPeer) {
+    if (cid === consumerId) state.screenAudioByPeer.delete(pid);
+  }
 });
 
 function addScreenTile(consumerId, peerId, track) {
@@ -1063,10 +1073,36 @@ function addScreenTile(consumerId, peerId, track) {
   label.className = 'tile__label';
   label.innerHTML = `<span class="live"></span><span>${escapeHtml(name)}</span>`;
 
+  const ctrls = document.createElement('div');
+  ctrls.className = 'tile__ctrls';
+
+  // Volume da tela (áudio compartilhado) — abre o menu com o slider.
+  const btnVol = document.createElement('button');
+  btnVol.type = 'button';
+  btnVol.className = 'tile__ctrl';
+  btnVol.title = 'Volume da tela';
+  btnVol.innerHTML = icons.volume;
+  btnVol.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const r = btnVol.getBoundingClientRect();
+    menuDoVideo(r.left, r.bottom + 6, consumerId);
+  });
+
+  // Não assistir: oculta o vídeo e para de receber (economiza banda).
+  const btnHide = document.createElement('button');
+  btnHide.type = 'button';
+  btnHide.className = 'tile__ctrl';
+  btnHide.title = 'Não assistir (ocultar)';
+  btnHide.innerHTML = icons.eyeOff;
+  btnHide.addEventListener('click', (event) => {
+    event.stopPropagation();
+    alternarOcultarTile(consumerId);
+  });
+
   // Botão de tela cheia: joga a transmissão da pessoa em tela cheia de verdade.
   const btnFull = document.createElement('button');
   btnFull.type = 'button';
-  btnFull.className = 'tile__full';
+  btnFull.className = 'tile__ctrl tile__ctrl--full';
   btnFull.title = 'Tela cheia';
   btnFull.innerHTML = icons.expand;
   btnFull.addEventListener('click', (event) => {
@@ -1074,18 +1110,111 @@ function addScreenTile(consumerId, peerId, track) {
     alternarTelaCheia(tile);
   });
 
-  tile.append(video, label, btnFull);
-  tile.addEventListener('click', () => toggleFocus(consumerId));
+  ctrls.append(btnVol, btnHide, btnFull);
+
+  // Capa de "vídeo oculto": aparece quando a pessoa escolhe não assistir.
+  const capa = document.createElement('button');
+  capa.type = 'button';
+  capa.className = 'tile__oculto';
+  capa.innerHTML = `<span class="tile__oculto-ico">${icons.eyeOff}</span><span>Vídeo oculto</span><small>clique para assistir</small>`;
+  capa.addEventListener('click', (event) => {
+    event.stopPropagation();
+    alternarOcultarTile(consumerId);
+  });
+
+  tile.append(video, label, ctrls, capa);
+  tile.addEventListener('click', () => {
+    if (!state.hiddenTiles.has(consumerId)) toggleFocus(consumerId);
+  });
   // Duplo clique no vídeo também entra/sai de tela cheia (atalho do costume).
   video.addEventListener('dblclick', (event) => {
     event.stopPropagation();
     alternarTelaCheia(tile);
+  });
+  // Clique direito: menu com volume da tela, ocultar e tela cheia.
+  tile.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    menuDoVideo(event.clientX, event.clientY, consumerId);
   });
 
   el.stageGrid.append(tile);
   state.tiles.set(consumerId, { consumerId, peerId, element: tile });
 
   updateStageLayout();
+}
+
+/** Liga/desliga o "não assistir" de um vídeo: oculta e pausa (ou volta). */
+function alternarOcultarTile(consumerId) {
+  const info = state.tiles.get(consumerId);
+  if (!info) return;
+
+  if (state.hiddenTiles.has(consumerId)) {
+    state.hiddenTiles.delete(consumerId);
+    room.retomarConsumer(consumerId).catch(() => {});
+  } else {
+    state.hiddenTiles.add(consumerId);
+    room.pausarConsumer(consumerId).catch(() => {});
+    if (state.focusedTile === consumerId) state.focusedTile = null;
+  }
+
+  info.element.classList.toggle('tile--oculto', state.hiddenTiles.has(consumerId));
+  const botao = info.element.querySelector('.tile__ctrl[title^="Não assistir"], .tile__ctrl[title^="Assistir"]');
+  if (botao) {
+    const oculto = state.hiddenTiles.has(consumerId);
+    botao.title = oculto ? 'Assistir de novo' : 'Não assistir (ocultar)';
+    botao.innerHTML = oculto ? icons.eye : icons.eyeOff;
+  }
+  updateStageLayout();
+}
+
+/** Menu de contexto de um vídeo compartilhado. */
+function menuDoVideo(x, y, consumerId) {
+  const info = state.tiles.get(consumerId);
+  if (!info) return;
+  const nome = state.peers.get(info.peerId)?.displayName ?? 'alguém';
+  const oculto = state.hiddenTiles.has(consumerId);
+  const audioCid = state.screenAudioByPeer.get(info.peerId);
+
+  const itens = [
+    { tipo: 'titulo', texto: `Tela de ${nome}` },
+    {
+      tipo: 'botao',
+      rotulo: oculto ? 'Voltar a assistir' : 'Não assistir (ocultar)',
+      icone: oculto ? icons.eye : icons.eyeOff,
+      aoClicar: () => alternarOcultarTile(consumerId),
+    },
+  ];
+
+  if (audioCid) {
+    const mudoTela = playback.isConsumerMuted(audioCid);
+    itens.push({
+      tipo: 'botao',
+      rotulo: mudoTela ? 'Ativar som da tela' : 'Mudo no som da tela',
+      icone: mudoTela ? icons.volumeOff : icons.volume,
+      aoClicar: () => playback.setConsumerMuted(audioCid, !mudoTela),
+    });
+    itens.push({
+      tipo: 'range',
+      rotulo: 'Volume da tela',
+      valor: playback.getConsumerVolume(audioCid),
+      aoAlterar: (v) => {
+        if (v > 0 && playback.isConsumerMuted(audioCid)) playback.setConsumerMuted(audioCid, false);
+        playback.setConsumerVolume(audioCid, v);
+      },
+    });
+  } else {
+    itens.push({ tipo: 'titulo', texto: 'Esta tela está sem som' });
+  }
+
+  itens.push({ tipo: 'separador' });
+  itens.push({
+    tipo: 'botao',
+    rotulo: 'Tela cheia',
+    icone: icons.expand,
+    aoClicar: () => alternarTelaCheia(info.element),
+  });
+
+  abrirMenuContexto(x, y, itens);
 }
 
 function removeTile(consumerId) {
@@ -1140,7 +1269,7 @@ function alternarTelaCheia(elemento) {
 document.addEventListener('fullscreenchange', () => {
   const emTela = document.fullscreenElement;
   for (const { element } of state.tiles.values()) {
-    const botao = element.querySelector('.tile__full');
+    const botao = element.querySelector('.tile__ctrl--full');
     if (botao) botao.innerHTML = element === emTela ? icons.shrink : icons.expand;
   }
 });
@@ -1169,6 +1298,141 @@ function updateStageLayout() {
       .join(', ');
     el.stageTitle.textContent = `Compartilhando: ${names}`;
   }
+}
+
+// =============================================================================
+// Menu de contexto (clique direito) — participantes e vídeos
+// =============================================================================
+
+let menuAberto = null;
+
+function fecharMenuContexto() {
+  if (!menuAberto) return;
+  menuAberto.remove();
+  menuAberto = null;
+  document.removeEventListener('mousedown', aoClicarForaDoMenu, true);
+  document.removeEventListener('keydown', aoTeclarNoMenu, true);
+  window.removeEventListener('blur', fecharMenuContexto);
+}
+
+function aoClicarForaDoMenu(ev) {
+  if (menuAberto && !menuAberto.contains(ev.target)) fecharMenuContexto();
+}
+
+function aoTeclarNoMenu(ev) {
+  if (ev.key === 'Escape') fecharMenuContexto();
+}
+
+/**
+ * Abre um menu flutuante em (x, y). Cada item pode ser:
+ *   { tipo: 'botao', rotulo, icone?, perigo?, aoClicar }
+ *   { tipo: 'range', rotulo, valor(0..1), aoAlterar }
+ *   { tipo: 'titulo', texto }
+ *   { tipo: 'separador' }
+ */
+function abrirMenuContexto(x, y, itens) {
+  fecharMenuContexto();
+
+  const menu = document.createElement('div');
+  menu.className = 'ctxmenu';
+
+  for (const item of itens) {
+    if (item.tipo === 'titulo') {
+      const t = document.createElement('div');
+      t.className = 'ctxmenu__titulo';
+      t.textContent = item.texto;
+      menu.append(t);
+    } else if (item.tipo === 'separador') {
+      const s = document.createElement('div');
+      s.className = 'ctxmenu__sep';
+      menu.append(s);
+    } else if (item.tipo === 'range') {
+      const linha = document.createElement('div');
+      linha.className = 'ctxmenu__range';
+
+      const topo = document.createElement('div');
+      topo.className = 'ctxmenu__range-topo';
+      const rot = document.createElement('span');
+      rot.textContent = item.rotulo;
+      const val = document.createElement('span');
+      val.className = 'ctxmenu__range-val';
+      topo.append(rot, val);
+
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.min = '0';
+      range.max = '100';
+      range.value = String(Math.round((item.valor ?? 1) * 100));
+      const pintar = () => (val.textContent = `${range.value}%`);
+      pintar();
+      range.addEventListener('input', () => {
+        item.aoAlterar?.(Number(range.value) / 100);
+        pintar();
+      });
+      // Mexer no slider não fecha o menu.
+      range.addEventListener('mousedown', (e) => e.stopPropagation());
+
+      linha.append(topo, range);
+      menu.append(linha);
+    } else {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ctxmenu__item' + (item.perigo ? ' ctxmenu__item--perigo' : '');
+      btn.innerHTML =
+        (item.icone ? `<span class="ctxmenu__ico">${item.icone}</span>` : '') +
+        `<span>${escapeHtml(item.rotulo)}</span>`;
+      btn.addEventListener('click', () => {
+        item.aoClicar?.();
+        fecharMenuContexto();
+      });
+      menu.append(btn);
+    }
+  }
+
+  // Coloca na tela sem estourar as bordas.
+  menu.style.visibility = 'hidden';
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  const px = Math.max(8, Math.min(x, window.innerWidth - r.width - 8));
+  const py = Math.max(8, Math.min(y, window.innerHeight - r.height - 8));
+  menu.style.left = `${px}px`;
+  menu.style.top = `${py}px`;
+  menu.style.visibility = 'visible';
+
+  menuAberto = menu;
+  // Espera um tick pra não capturar o próprio clique que abriu o menu.
+  setTimeout(() => {
+    if (!menuAberto) return;
+    document.addEventListener('mousedown', aoClicarForaDoMenu, true);
+    document.addEventListener('keydown', aoTeclarNoMenu, true);
+    window.addEventListener('blur', fecharMenuContexto);
+  }, 0);
+}
+
+/** Menu de contexto de um participante: mutar só pra mim + volume. */
+function abrirMenuPeer(x, y, membro) {
+  const mudo = playback.isPeerMuted(membro.id);
+  abrirMenuContexto(x, y, [
+    { tipo: 'titulo', texto: membro.displayName },
+    {
+      tipo: 'botao',
+      rotulo: mudo ? 'Ouvir de novo' : 'Silenciar só pra mim',
+      icone: mudo ? icons.volumeOff : icons.volume,
+      aoClicar: () => {
+        playback.setPeerMuted(membro.id, !mudo);
+        renderPeers();
+      },
+    },
+    {
+      tipo: 'range',
+      rotulo: 'Volume',
+      valor: playback.getPeerVolume(membro.id),
+      aoAlterar: (v) => {
+        if (v > 0 && playback.isPeerMuted(membro.id)) playback.setPeerMuted(membro.id, false);
+        playback.setPeerVolume(membro.id, v);
+      },
+    },
+  ]);
 }
 
 // =============================================================================
@@ -1223,9 +1487,6 @@ function renderPeers() {
 
     for (const membro of membros) {
       el.peerList.append(criarLinhaPeer(membro));
-      if (!membro.isSelf && state.openPeerPanel === membro.id) {
-        el.peerList.append(criarPainelVolume(membro));
-      }
     }
   }
 
@@ -1302,7 +1563,7 @@ function criarLinhaPeer(membro) {
 
   item.append(avatar, name, badges);
 
-  // Controles de quem NÃO é você: mudo local e volume individual.
+  // Controles de quem NÃO é você: mudo rápido + clique direito p/ volume.
   if (!membro.isSelf) {
     const ctrls = document.createElement('div');
     ctrls.className = 'peer__ctrls';
@@ -1318,18 +1579,16 @@ function criarLinhaPeer(membro) {
       renderPeers();
     });
 
-    const btnVol = document.createElement('button');
-    btnVol.className = 'peer__ctrl' + (state.openPeerPanel === membro.id ? ' peer__ctrl--on' : '');
-    btnVol.title = 'Ajustar o volume dessa pessoa';
-    btnVol.innerHTML = icons.settings;
-    btnVol.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      state.openPeerPanel = state.openPeerPanel === membro.id ? null : membro.id;
-      renderPeers();
-    });
-
-    ctrls.append(btnMudo, btnVol);
+    ctrls.append(btnMudo);
     item.append(ctrls);
+
+    // No lugar da antiga engrenagem: clique direito abre mutar + volume.
+    item.classList.add('peer--menu');
+    item.title = 'Clique direito para volume e opções';
+    item.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      abrirMenuPeer(ev.clientX, ev.clientY, membro);
+    });
   }
 
   // Quem compartilha vira clicável: leva a tela dessa pessoa para o destaque.
@@ -1340,37 +1599,6 @@ function criarLinhaPeer(membro) {
   }
 
   return item;
-}
-
-/** Painel expansível com o slider de volume individual daquela pessoa. */
-function criarPainelVolume(membro) {
-  const li = document.createElement('li');
-  li.className = 'peer-vol';
-
-  const range = document.createElement('input');
-  range.type = 'range';
-  range.min = '0';
-  range.max = '100';
-  range.value = String(Math.round(playback.getPeerVolume(membro.id) * 100));
-  range.className = 'peer-vol__range';
-  range.setAttribute('aria-label', `Volume de ${membro.displayName}`);
-
-  const val = document.createElement('span');
-  val.className = 'peer-vol__val';
-  const pintarVal = () =>
-    (val.textContent = playback.isPeerMuted(membro.id) ? 'mudo' : `${range.value}%`);
-  pintarVal();
-
-  range.addEventListener('input', () => {
-    const v = Number(range.value) / 100;
-    // Mexer no volume desfaz o mudo local.
-    if (v > 0 && playback.isPeerMuted(membro.id)) playback.setPeerMuted(membro.id, false);
-    playback.setPeerVolume(membro.id, v);
-    pintarVal();
-  });
-
-  li.append(range, val);
-  return li;
 }
 
 // =============================================================================

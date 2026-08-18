@@ -367,6 +367,32 @@ export class RoomClient extends Emitter {
     source.connect(node);
     node.connect(dest);
 
+    // O Chromium pode criar o AudioContext SUSPENSO (política de autoplay) e
+    // também suspendê-lo quando o app fica em segundo plano — o que é comum aqui,
+    // com o jogo em primeiro plano. Suspenso, o worklet não processa e a saída
+    // fica MUDA. Então: garante que arranca rodando e re-liga se cair.
+    if (ctx.state !== 'running') {
+      try {
+        await ctx.resume();
+      } catch {
+        /* segue para a checagem abaixo */
+      }
+    }
+    if (ctx.state !== 'running') {
+      // Não deu para rodar: melhor cair no som cru (quem chamou trata o erro)
+      // do que deixar o microfone mudo.
+      try {
+        await ctx.close();
+      } catch {
+        /* ok */
+      }
+      throw new Error('AudioContext ficou suspenso; seguindo sem RNNoise');
+    }
+    // Mantém vivo: se o Chromium suspender (app em segundo plano), re-liga.
+    ctx.addEventListener('statechange', () => {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    });
+
     this.#ruido = { ctx, source, node, dest };
     return dest.stream.getAudioTracks()[0];
   }
@@ -731,6 +757,40 @@ export class RoomClient extends Emitter {
       kind: params.kind,
       track: consumer.track,
     });
+  }
+
+  /**
+   * Pausa o recebimento de um consumer (ex.: "não quero assistir o vídeo do
+   * fulano"). O servidor para de mandar a mídia — economiza banda — e o consumer
+   * local também para de decodificar.
+   */
+  async pausarConsumer(consumerId) {
+    const consumer = this.consumers.get(consumerId);
+    try {
+      await this.signaling.request('pauseConsumer', { consumerId });
+    } catch {
+      /* servidor pode já ter fechado */
+    }
+    try {
+      consumer?.pause();
+    } catch {
+      /* ok */
+    }
+  }
+
+  /** Volta a receber um consumer pausado. */
+  async retomarConsumer(consumerId) {
+    const consumer = this.consumers.get(consumerId);
+    try {
+      consumer?.resume();
+    } catch {
+      /* ok */
+    }
+    try {
+      await this.signaling.request('resumeConsumer', { consumerId });
+    } catch {
+      /* ok */
+    }
   }
 
   // ---------------------------------------------------------------------------

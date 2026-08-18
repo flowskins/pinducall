@@ -1527,27 +1527,106 @@ select.field__input option:checked {
   color: var(--neon);
 }
 
-.peer-vol {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 2px 14px 9px 46px;
-  list-style: none;
+/* ---------- Menu de contexto (clique direito) ---------- */
+.ctxmenu {
+  position: fixed;
+  z-index: 200;
+  min-width: 214px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(16, 12, 28, 0.98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  animation: ctxIn 0.12s ease;
 }
 
-.peer-vol__range {
-  flex: 1;
+@keyframes ctxIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ctxmenu__titulo {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.ctxmenu__sep {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--line);
+}
+
+.ctxmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ctxmenu__item:hover {
+  background: rgba(255, 45, 74, 0.14);
+}
+
+.ctxmenu__ico {
+  display: grid;
+  place-items: center;
+  color: var(--text-dim);
+}
+
+.ctxmenu__ico svg {
+  width: 16px;
+  height: 16px;
+}
+
+.ctxmenu__item:hover .ctxmenu__ico {
+  color: var(--neon);
+}
+
+.ctxmenu__range {
+  padding: 8px 10px 10px;
+}
+
+.ctxmenu__range-topo {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.ctxmenu__range-val {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctxmenu__range input[type='range'] {
+  width: 100%;
   accent-color: var(--neon);
   height: 4px;
   cursor: pointer;
-}
-
-.peer-vol__val {
-  font-size: 11px;
-  color: var(--text-faint);
-  min-width: 36px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Sub-salas (canais de voz) ---------- */
@@ -1961,11 +2040,23 @@ select.field__input option:checked {
   background: #000;
 }
 
-/* Botão de tela cheia no canto do tile — aparece ao passar o mouse. */
-.tile__full {
+/* Controles no canto do tile (volume, ocultar, tela cheia) — no hover. */
+.tile__ctrls {
   position: absolute;
   top: 10px;
   right: 10px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 4;
+}
+
+.tile:hover .tile__ctrls {
+  opacity: 1;
+}
+
+.tile__ctrl {
   width: 34px;
   height: 34px;
   display: grid;
@@ -1976,23 +2067,59 @@ select.field__input option:checked {
   backdrop-filter: blur(8px);
   color: var(--text);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
-  z-index: 3;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.tile:hover .tile__full {
-  opacity: 1;
-}
-
-.tile__full:hover {
+.tile__ctrl:hover {
   border-color: var(--neon);
   background: rgba(5, 6, 11, 0.92);
 }
 
-.tile__full svg {
+.tile__ctrl svg {
   width: 18px;
   height: 18px;
+}
+
+/* Capa de "vídeo oculto" (quando escolho não assistir). */
+.tile__oculto {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  background: linear-gradient(160deg, #17101f, #0c0817);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 5;
+}
+
+.tile__oculto small {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tile__oculto-ico svg {
+  width: 30px;
+  height: 30px;
+  color: var(--text-faint);
+}
+
+.tile__oculto:hover {
+  color: var(--text);
+}
+
+.tile--oculto .tile__oculto {
+  display: flex;
+}
+
+.tile--oculto video {
+  visibility: hidden;
 }
 
 /* Em tela cheia o tile ocupa a tela inteira, sem o aspect-ratio travando. */
@@ -2010,8 +2137,8 @@ select.field__input option:checked {
   object-fit: contain;
 }
 
-/* Em tela cheia o botão de sair fica sempre visível. */
-.tile:fullscreen .tile__full {
+/* Em tela cheia os controles ficam sempre visíveis. */
+.tile:fullscreen .tile__ctrls {
   opacity: 1;
 }
 

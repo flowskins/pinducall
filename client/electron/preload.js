@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('pinducall', {
     set: (values) => ipcRenderer.invoke('settings:set', values),
   },
 
+  /** Redução de ruído: entrega o worklet (texto) e o WASM do RNNoise. */
+  ruido: {
+    carregar: () => ipcRenderer.invoke('ruido:carregar'),
+  },
+
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     openExternal: (url) => ipcRenderer.invoke('app:open-external', url),

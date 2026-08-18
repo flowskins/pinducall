@@ -183,16 +183,15 @@ export class Room {
       this.broadcast('djUpdate', this.djState());
     }
 
-    const canalDoQueSaiu = peer.state.channel;
-
     peer.close();
     this.#peers.delete(peerId);
     this.#log.info(`${peer.displayName} saiu (${this.#peers.size}/${config.maxPeersPerRoom})`);
 
     this.broadcast('peerLeft', { peerId });
 
-    // Sub-sala que ficou vazia deixa de existir (o 'principal' nunca some).
-    this.#limparCanalSeVazio(canalDoQueSaiu);
+    // As sub-salas ficam de pé mesmo vazias — dá para deixar canais prontos e
+    // ir e voltar sem eles sumirem. A contagem atualiza sozinha no cliente.
+    this.#emitirCanais();
 
     if (this.#peers.size === 0) {
       this.#log.info('Sala vazia; router será fechado para liberar recursos.');
@@ -254,16 +253,6 @@ export class Room {
       holder.consumers.delete(consumer.id);
       this.send(holder, 'consumerClosed', { consumerId: consumer.id });
     }
-  }
-
-  #limparCanalSeVazio(canalId) {
-    if (!canalId || canalId === CANAL_PRINCIPAL) return;
-    const canal = this.#channels.get(canalId);
-    if (!canal || canal.fixo) return;
-    const aindaTemGente = [...this.#peers.values()].some((p) => p.state.channel === canalId);
-    if (aindaTemGente) return;
-    this.#channels.delete(canalId);
-    this.#emitirCanais();
   }
 
   criarCanal(peer, nomeBruto) {
@@ -331,9 +320,8 @@ export class Room {
       }
     }
 
-    // 5) Todo mundo atualiza onde a pessoa está; some com o canal antigo se esvaziou.
+    // 5) Todo mundo atualiza onde a pessoa está e a contagem dos canais.
     this.broadcast('peerUpdated', { peerId: peer.id, state: peer.state });
-    this.#limparCanalSeVazio(canalAntigo);
     this.#emitirCanais();
 
     this.#log.info(`${peer.displayName} foi para a sub-sala "${this.#channels.get(canalId)?.nome}"`);

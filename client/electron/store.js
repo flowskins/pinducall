@@ -25,6 +25,8 @@ const DEFAULTS = {
   noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
+  // Redução de ruído avançada (RNNoise): remove ruído de fundo deixando só a voz.
+  reducaoRuido: true,
   // Avatar escolhido: { emoji, color } ou null (usa iniciais + cor do nome).
   avatar: null,
   screenFrameRate: 30,

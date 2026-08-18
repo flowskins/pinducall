@@ -2,7 +2,7 @@ import { RoomClient } from './room-client.js';
 import { AudioPlayback, MicLevelMeter } from './playback.js';
 import { icons } from './icons.js';
 import { TibiaPanel } from './tibia-panel.js';
-import { prepararAudio } from './sounds.js';
+import { prepararAudio, tocarEntrada, tocarSaida, tocarTroca } from './sounds.js';
 import { listarSalas, criarSala, verConvite } from './lobby.js';
 
 // =============================================================================
@@ -115,6 +115,7 @@ const el = {
   btnObsAuto: $('btn-obs-auto'),
   obsAutoStatus: $('obs-auto-status'),
   inputVolume: $('input-volume'),
+  inputRuido: $('input-ruido'),
   inputEcho: $('input-echo'),
   inputNoise: $('input-noise'),
   inputGain: $('input-gain'),
@@ -333,6 +334,7 @@ async function loadSettings() {
   // A senha/lembrar agora ficam no modal "Entrar" e são preenchidas em abrirEntrar().
 
   el.inputVolume.value = String(Math.round((state.settings.micVolume ?? 1) * 100));
+  el.inputRuido.checked = state.settings.reducaoRuido !== false;
   el.inputEcho.checked = state.settings.echoCancellation !== false;
   el.inputNoise.checked = state.settings.noiseSuppression !== false;
   el.inputGain.checked = state.settings.autoGainControl !== false;
@@ -509,6 +511,7 @@ async function entrarNaSala({ roomId, password, convite, nome }) {
       echoCancellation: el.inputEcho.checked,
       noiseSuppression: el.inputNoise.checked,
       autoGainControl: el.inputGain.checked,
+      reducaoRuido: el.inputRuido.checked,
     },
   });
 
@@ -849,6 +852,7 @@ room.on('peerJoined', (peer) => {
   state.peers.set(peer.id, peer);
   renderPeers();
   appendSystemMessage(`${peer.displayName} entrou na sala.`);
+  tocarEntrada();
 });
 
 room.on('peerLeft', ({ peerId }) => {
@@ -857,7 +861,10 @@ room.on('peerLeft', ({ peerId }) => {
   playback.removeByPeer(peerId);
   removeTilesOfPeer(peerId);
   renderPeers();
-  if (peer) appendSystemMessage(`${peer.displayName} saiu da sala.`);
+  if (peer) {
+    appendSystemMessage(`${peer.displayName} saiu da sala.`);
+    tocarSaida();
+  }
 });
 
 room.on('peerUpdated', ({ peerId, state: peerState }) => {
@@ -889,6 +896,7 @@ room.on('canalEntrou', ({ canal }) => {
   renderPeers();
   const nome = state.canais.find((c) => c.id === canal)?.nome ?? 'sub-sala';
   toast(`Você está agora em: ${nome}`, 'ok');
+  tocarTroca();
 });
 
 room.on('chat', (message) => {
@@ -1212,11 +1220,19 @@ function renderPeers() {
   el.roomCount.textContent = `${total} / ${state.settings?.maxPeers ?? 10} conectados`;
 }
 
-/** Cabeçalho de uma sub-sala, com contagem e botão de entrar. */
+/** Cabeçalho de uma sub-sala. Clicar no título entra nela. */
 function criarCabecalhoCanal(canal, count) {
   const li = document.createElement('li');
   li.className = 'canal';
-  if (canal.id === state.selfChannel) li.classList.add('canal--atual');
+  const atual = canal.id === state.selfChannel;
+
+  if (atual) {
+    li.classList.add('canal--atual');
+  } else {
+    li.classList.add('canal--clicavel');
+    li.title = 'Clique para entrar nesta sub-sala';
+    li.addEventListener('click', () => entrarSubSala(canal.id));
+  }
 
   const nome = document.createElement('span');
   nome.className = 'canal__nome';
@@ -1227,16 +1243,6 @@ function criarCabecalhoCanal(canal, count) {
   cont.textContent = String(count);
 
   li.append(nome, cont);
-
-  if (canal.id !== state.selfChannel) {
-    const entrar = document.createElement('button');
-    entrar.className = 'canal__entrar';
-    entrar.title = 'Entrar nesta sub-sala';
-    entrar.innerHTML = icons.enter;
-    entrar.addEventListener('click', () => entrarSubSala(canal.id));
-    li.append(entrar);
-  }
-
   return li;
 }
 
@@ -2332,6 +2338,20 @@ for (const [input, key] of [
     room.audioConstraints[key] = input.checked;
   });
 }
+
+// Redução de ruído (RNNoise): aplica na hora, trocando o track do microfone no ar.
+el.inputRuido.addEventListener('change', async () => {
+  const ligado = el.inputRuido.checked;
+  window.pinducall.settings.set({ reducaoRuido: ligado });
+  if (state.settings) state.settings.reducaoRuido = ligado;
+  if (room.audioConstraints) room.audioConstraints.reducaoRuido = ligado;
+  try {
+    await room.setNoiseSuppression(ligado);
+    if (state.connected) toast(ligado ? 'Voz limpa ligada.' : 'Voz limpa desligada.', 'ok', 3000);
+  } catch (error) {
+    toast(`Não consegui mudar a redução de ruído: ${error.message}`, 'warn');
+  }
+});
 
 navigator.mediaDevices?.addEventListener?.('devicechange', () => {
   refreshDeviceLists().catch(() => {});

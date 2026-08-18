@@ -107,10 +107,13 @@ async function main() {
   );
   ok('consumo entre canais diferentes é barrado', true);
 
-  // Alice e Bob voltam ao principal; a sub-sala vazia deve sumir.
+  // Alice e Bob voltam ao principal; a sub-sala vazia CONTINUA existindo
+  // (dá para deixar canais prontos e ir e voltar sem eles sumirem).
   room.entrarCanal(alice, 'principal');
   room.entrarCanal(bob, 'principal');
-  ok('sub-sala vazia é removida', room.channelsSummary().length === 1);
+  const aindaExiste = room.channelsSummary().find((c) => c.id === canal.id);
+  ok('sub-sala vazia continua existindo', Boolean(aindaExiste) && aindaExiste.count === 0);
+  ok('ainda dá para voltar pra ela', room.entrarCanal(caio, canal.id).canal === canal.id);
 
   room.close();
   await closeWorkers();

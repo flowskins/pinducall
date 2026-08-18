@@ -1,4 +1,5 @@
 import * as mediasoupClient from 'mediasoup-client';
+import { RnnoiseWorkletNode } from '@sapphi-red/web-noise-suppressor';
 import { Emitter } from './emitter.js';
 import { Signaling } from './signaling.js';
 
@@ -31,6 +32,11 @@ const SCREEN_ENCODINGS = [
  *   'warning'       string
  */
 export class RoomClient extends Emitter {
+  /** Cadeia de áudio da redução de ruído ativa: { ctx, source, node, dest }. */
+  #ruido = null;
+  /** wasm + URL do worklet do RNNoise, carregados uma única vez. */
+  #ruidoAssets = null;
+
   constructor() {
     super();
     this.signaling = new Signaling();
@@ -56,6 +62,11 @@ export class RoomClient extends Emitter {
 
     this.state = { micMuted: false, deafened: false, screenSharing: false };
     this.audioConstraints = {};
+
+    // Redução de ruído (RNNoise). A cadeia de áudio ativa e os assets carregados
+    // ficam em campos privados (#ruido / #ruidoAssets).
+    this.reducaoRuido = false;
+    this.micDeviceId = 'default';
 
     this.#wireSignaling();
   }
@@ -108,6 +119,7 @@ export class RoomClient extends Emitter {
    */
   async join({ url, roomId, displayName, password, convite, audio = {}, avatar = null }) {
     this.audioConstraints = audio;
+    this.reducaoRuido = Boolean(audio.reducaoRuido);
     this.state.avatar = avatar;
 
     await this.signaling.connect(url);
@@ -269,20 +281,9 @@ export class RoomClient extends Emitter {
   async startMic(deviceId = 'default') {
     if (this.micProducer && !this.micProducer.closed) return this.localStream;
 
-    const constraints = {
-      audio: {
-        deviceId: deviceId && deviceId !== 'default' ? { exact: deviceId } : undefined,
-        echoCancellation: this.audioConstraints.echoCancellation ?? true,
-        noiseSuppression: this.audioConstraints.noiseSuppression ?? true,
-        autoGainControl: this.audioConstraints.autoGainControl ?? true,
-        channelCount: 1,
-      },
-      video: false,
-    };
-
-    this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    const track = this.localStream.getAudioTracks()[0];
-    if (!track) throw new Error('Nenhum microfone disponível');
+    this.micDeviceId = deviceId;
+    const { stream, track } = await this.#capturarMic(deviceId);
+    this.localStream = stream;
 
     this.micProducer = await this.sendTransport.produce({
       track,
@@ -299,18 +300,130 @@ export class RoomClient extends Emitter {
       this.micProducer = null;
     });
 
-    if (this.state.micMuted) await this.micProducer.pause();
+    if (this.state.micMuted) {
+      await this.micProducer.pause();
+      for (const t of this.localStream?.getAudioTracks() ?? []) t.enabled = false;
+    }
 
     return this.localStream;
   }
 
-  #stopMic() {
+  /**
+   * Abre o microfone e devolve { stream, track }. Com a redução de ruído ligada,
+   * o `track` já é a saída limpa do RNNoise; senão é o track cru. `this.localStream`
+   * guarda sempre o stream CRU — mutar corta a entrada, inclusive do RNNoise.
+   */
+  async #capturarMic(deviceId) {
+    const constraints = {
+      audio: {
+        deviceId: deviceId && deviceId !== 'default' ? { exact: deviceId } : undefined,
+        echoCancellation: this.audioConstraints.echoCancellation ?? true,
+        // Com o RNNoise ligado, desliga a supressão do navegador (não processa duas vezes).
+        noiseSuppression: this.reducaoRuido ? false : this.audioConstraints.noiseSuppression ?? true,
+        autoGainControl: this.audioConstraints.autoGainControl ?? true,
+        channelCount: 1,
+      },
+      video: false,
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const bruto = stream.getAudioTracks()[0];
+    if (!bruto) throw new Error('Nenhum microfone disponível');
+
+    if (!this.reducaoRuido) return { stream, track: bruto };
+
+    // Sem a ponte com o processo principal (ex.: fora do Electron) não há RNNoise:
+    // segue com o som normal, sem erro.
+    if (!window.pinducall?.ruido?.carregar) return { stream, track: bruto };
+
+    try {
+      const track = await this.#ligarRuido(stream);
+      return { stream, track };
+    } catch (error) {
+      console.error('[room] RNNoise falhou, seguindo sem redução de ruído:', error);
+      this.emit('warning', 'Não consegui ligar a redução de ruído; seguindo com o som normal.');
+      return { stream, track: bruto };
+    }
+  }
+
+  async #carregarAssetsRuido() {
+    if (this.#ruidoAssets) return this.#ruidoAssets;
+    const { workletCode, wasm } = await window.pinducall.ruido.carregar();
+    const blob = new Blob([workletCode], { type: 'application/javascript' });
+    this.#ruidoAssets = { wasm, workletUrl: URL.createObjectURL(blob) };
+    return this.#ruidoAssets;
+  }
+
+  /** Monta a cadeia RNNoise sobre `stream` e devolve o track de saída já limpo. */
+  async #ligarRuido(stream) {
+    const assets = await this.#carregarAssetsRuido();
+    // RNNoise assume 48kHz.
+    const ctx = new AudioContext({ sampleRate: 48000 });
+    await ctx.audioWorklet.addModule(assets.workletUrl);
+
+    const source = ctx.createMediaStreamSource(stream);
+    const node = new RnnoiseWorkletNode(ctx, { maxChannels: 1, wasmBinary: assets.wasm });
+    const dest = ctx.createMediaStreamDestination();
+    source.connect(node);
+    node.connect(dest);
+
+    this.#ruido = { ctx, source, node, dest };
+    return dest.stream.getAudioTracks()[0];
+  }
+
+  async #desligarRuido(ruido = this.#ruido) {
+    if (!ruido) return;
+    if (ruido === this.#ruido) this.#ruido = null;
+    try {
+      ruido.node.destroy?.();
+    } catch {
+      /* ok */
+    }
+    try {
+      ruido.source.disconnect();
+      ruido.node.disconnect();
+    } catch {
+      /* ok */
+    }
+    try {
+      await ruido.ctx.close();
+    } catch {
+      /* ok */
+    }
+  }
+
+  /** Liga/desliga a redução de ruído em tempo real, trocando o track no ar. */
+  async setNoiseSuppression(enabled) {
+    enabled = Boolean(enabled);
+    if (this.reducaoRuido === enabled) return;
+    this.reducaoRuido = enabled;
+
+    if (this.micProducer && !this.micProducer.closed) {
+      const ruidoAntigo = this.#ruido;
+      const streamAntigo = this.localStream;
+      this.#ruido = null;
+
+      const { stream, track } = await this.#capturarMic(this.micDeviceId);
+      await this.micProducer.replaceTrack({ track });
+      this.localStream = stream;
+      for (const t of stream.getAudioTracks()) t.enabled = !this.state.micMuted;
+
+      await this.#desligarRuido(ruidoAntigo);
+      for (const t of streamAntigo?.getTracks() ?? []) t.stop();
+    }
+
+    this.emit('localState', { ...this.state });
+  }
+
+  async #stopMic() {
     try {
       this.micProducer?.close();
     } catch {
       /* já fechado */
     }
     this.micProducer = null;
+
+    await this.#desligarRuido();
 
     for (const track of this.localStream?.getTracks() ?? []) track.stop();
     this.localStream = null;
@@ -352,27 +465,22 @@ export class RoomClient extends Emitter {
   async switchMic(deviceId) {
     if (!this.sendTransport) return;
 
-    const constraints = {
-      audio: {
-        deviceId: deviceId && deviceId !== 'default' ? { exact: deviceId } : undefined,
-        echoCancellation: this.audioConstraints.echoCancellation ?? true,
-        noiseSuppression: this.audioConstraints.noiseSuppression ?? true,
-        autoGainControl: this.audioConstraints.autoGainControl ?? true,
-        channelCount: 1,
-      },
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    const track = stream.getAudioTracks()[0];
+    this.micDeviceId = deviceId;
 
     if (this.micProducer && !this.micProducer.closed) {
+      const ruidoAntigo = this.#ruido;
+      const streamAntigo = this.localStream;
+      this.#ruido = null;
+
+      const { stream, track } = await this.#capturarMic(deviceId);
       await this.micProducer.replaceTrack({ track });
-      for (const old of this.localStream?.getTracks() ?? []) old.stop();
       this.localStream = stream;
-      track.enabled = !this.state.micMuted;
+      for (const t of stream.getAudioTracks()) t.enabled = !this.state.micMuted;
+
+      await this.#desligarRuido(ruidoAntigo);
+      for (const old of streamAntigo?.getTracks() ?? []) old.stop();
     } else {
-      for (const old of this.localStream?.getTracks() ?? []) old.stop();
-      this.localStream = stream;
+      await this.#stopMic();
       await this.startMic(deviceId);
     }
 

@@ -1,4 +1,5 @@
 const path = require('node:path');
+const fs = require('node:fs');
 const {
   app,
   BrowserWindow,
@@ -291,6 +292,18 @@ function registerIpc() {
 
   ipcMain.handle('settings:get', () => store.readAll());
   ipcMain.handle('settings:set', (_event, values) => store.writeAll(values ?? {}));
+
+  // Redução de ruído (RNNoise): o renderer não pode ler arquivos (file:// + fetch
+  // bloqueado), então o processo principal entrega o worklet (texto) e o binário
+  // WASM. O renderer monta um Blob para o AudioWorklet e passa o wasm ao nó.
+  ipcMain.handle('ruido:carregar', () => {
+    const base = path.join(__dirname, '..', 'renderer', 'assets', 'rnnoise');
+    const workletCode = fs.readFileSync(path.join(base, 'workletProcessor.js'), 'utf8');
+    const buf = fs.readFileSync(path.join(base, 'rnnoise_simd.wasm'));
+    // Buffer -> ArrayBuffer exato (sem carregar o resto do pool do Node).
+    const wasm = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    return { workletCode, wasm };
+  });
 
   ipcMain.handle('app:info', () => ({
     version: app.getVersion(),

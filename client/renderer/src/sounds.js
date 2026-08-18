@@ -71,6 +71,30 @@ export function tocarChamado(volume = 0.6) {
   bipe(659, 0.48, 0.26, v, 'square');
 }
 
+/** Alguém entrou na chamada: duas notas subindo, curtas e discretas. */
+export function tocarEntrada(volume = 0.5) {
+  const v = Math.max(0, Math.min(1, volume)) * 0.32;
+  if (v <= 0) return;
+  bipe(587, 0, 0.1, v, 'sine');
+  bipe(880, 0.1, 0.16, v, 'sine');
+}
+
+/** Alguém saiu da chamada: duas notas descendo. */
+export function tocarSaida(volume = 0.5) {
+  const v = Math.max(0, Math.min(1, volume)) * 0.3;
+  if (v <= 0) return;
+  bipe(660, 0, 0.1, v, 'sine');
+  bipe(440, 0.1, 0.18, v, 'sine');
+}
+
+/** Você trocou de sub-sala: um toque curto de confirmação. */
+export function tocarTroca(volume = 0.5) {
+  const v = Math.max(0, Math.min(1, volume)) * 0.3;
+  if (v <= 0) return;
+  bipe(523, 0, 0.08, v, 'triangle');
+  bipe(784, 0.09, 0.14, v, 'triangle');
+}
+
 /** Deixa o contexto pronto — o Chromium exige um gesto do usuário antes do 1º som. */
 export function prepararAudio() {
   try {

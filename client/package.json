@@ -1,7 +1,7 @@
 {
   "name": "pinducall",
   "productName": "PinduCcall",
-  "version": "1.7.9",
+  "version": "1.8.0",
   "private": true,
   "description": "Voz, compartilhamento de tela e chat em sala privada hospedada no seu PC",
   "author": {
@@ -22,6 +22,7 @@
     "test:electron": "node scripts/electron-test.mjs"
   },
   "dependencies": {
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "electron-updater": "^6.8.9",
     "mediasoup-client": "^3.7.16",
     "ws": "^8.21.3"

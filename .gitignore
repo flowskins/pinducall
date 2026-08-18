@@ -3,6 +3,8 @@ release/
 dist/
 data/
 data-test/
+# Assets do RNNoise: gerados no build a partir do node_modules.
+client/renderer/assets/rnnoise/
 .env
 *.log
 .DS_Store

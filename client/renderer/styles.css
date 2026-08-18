@@ -284,6 +284,22 @@ body::before {
   display: none !important;
 }
 
+/* Camadas de clima (neve / chuva). Nunca capturam clique. A chuva fica atrás
+   da interface (sobre o cenário); a neve fica na frente, caindo sobre o card. */
+.fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fx--chuva {
+  z-index: -1;
+}
+
+.fx--neve {
+  z-index: 40;
+}
+
 ::selection {
   background: var(--violet);
   color: #fff;

@@ -4,6 +4,7 @@ import { icons } from './icons.js';
 import { TibiaPanel } from './tibia-panel.js';
 import { prepararAudio, tocarEntrada, tocarSaida, tocarTroca } from './sounds.js';
 import { listarSalas, criarSala, verConvite } from './lobby.js';
+import { iniciarNeve, iniciarChuva } from './efeitos.js';
 
 // =============================================================================
 // Helpers de DOM
@@ -130,6 +131,18 @@ const el = {
 
   toasts: $('toasts'),
 };
+
+// Clima: neve na entrada (dramática), chuva + relâmpagos no app (perceptível).
+// Fica aqui, cedo, para não depender do resto do boot. Cada efeito só desenha
+// quando a tela dele está visível e a aba está ativa.
+iniciarNeve(document.getElementById('fx-neve'), {
+  quantidade: 260,
+  visivel: () => !el.connectScreen.classList.contains('hidden'),
+});
+iniciarChuva(document.getElementById('fx-chuva'), {
+  quantidade: 150,
+  visivel: () => !el.roomScreen.classList.contains('hidden'),
+});
 
 // =============================================================================
 // Estado da aplicação

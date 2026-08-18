@@ -367,6 +367,15 @@ export class RoomClient extends Emitter {
     source.connect(node);
     node.connect(dest);
 
+    // Se o worklet quebrar (ex.: WASM não instanciou), ele para de emitir som —
+    // microfone mudo. Esse evento avisa na hora: volta pro som cru.
+    node.onprocessorerror = () => {
+      console.error('[room] erro no worklet do RNNoise; revertendo para o som cru');
+      this.#reverterParaCru(
+        'A redução de ruído falhou neste PC e estava deixando você mudo; voltei para o som normal.',
+      ).catch(() => {});
+    };
+
     // O Chromium pode criar o AudioContext SUSPENSO (política de autoplay) e
     // também suspendê-lo quando o app fica em segundo plano — o que é comum aqui,
     // com o jogo em primeiro plano. Suspenso, o worklet não processa e a saída
@@ -394,7 +403,124 @@ export class RoomClient extends Emitter {
     });
 
     this.#ruido = { ctx, source, node, dest };
+    // Rede de segurança: se, mesmo montado, o RNNoise entregar SILÊNCIO (o
+    // worklet não processou por qualquer motivo), volta sozinho pro som cru —
+    // assim o microfone nunca fica mudo de verdade.
+    this.#vigiarRuido();
     return dest.stream.getAudioTracks()[0];
+  }
+
+  /**
+   * Vigia a cadeia do RNNoise: compara o nível de entrada (mic cru) com o de
+   * saída (depois do RNNoise). Se a pessoa claramente falou (entrada com sinal)
+   * mas a saída ficou muda, o RNNoise não está funcionando neste PC — então
+   * reverte pro som cru e avisa. Se a saída acompanha a entrada, para de vigiar.
+   */
+  #vigiarRuido() {
+    const ruido = this.#ruido;
+    if (!ruido) return;
+    const { ctx, source, node } = ruido;
+
+    const aIn = ctx.createAnalyser();
+    const aOut = ctx.createAnalyser();
+    aIn.fftSize = 1024;
+    aOut.fftSize = 1024;
+    try {
+      source.connect(aIn);
+      node.connect(aOut);
+    } catch {
+      return;
+    }
+    ruido.analisadores = [aIn, aOut];
+
+    const bIn = new Float32Array(aIn.fftSize);
+    const bOut = new Float32Array(aOut.fftSize);
+    const rms = (a, buf) => {
+      a.getFloatTimeDomainData(buf);
+      let s = 0;
+      for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+      return Math.sqrt(s / buf.length);
+    };
+
+    let maxIn = 0;
+    let maxOut = 0;
+    const inicio = performance.now();
+
+    const limpar = () => {
+      try {
+        source.disconnect(aIn);
+        node.disconnect(aOut);
+      } catch {
+        /* ok */
+      }
+    };
+
+    const tick = () => {
+      // Trocou de mic, desligou o RNNoise ou saiu da sala: para de vigiar.
+      if (this.#ruido !== ruido) {
+        limpar();
+        return;
+      }
+      maxIn = Math.max(maxIn, rms(aIn, bIn));
+      maxOut = Math.max(maxOut, rms(aOut, bOut));
+
+      // Assim que a saída dá QUALQUER sinal audível, o RNNoise está funcionando
+      // (ele silencia ruído de propósito, então "saída baixa" sozinho não prova
+      // defeito — só a saída morta prova). Encerra a vigília, sem reverter.
+      if (maxOut > 0.0015) {
+        limpar();
+        return;
+      }
+
+      // Entrou som CLARO na entrada e a saída seguiu MORTA (zero absoluto): o
+      // worklet não está processando. Aí sim volta pro cru. Limiar conservador
+      // pra nunca reverter um RNNoise que só está suprimindo ruído.
+      if (maxIn > 0.05 && performance.now() - inicio > 2000) {
+        limpar();
+        console.warn(
+          `[room] RNNoise sem saída (in=${maxIn.toFixed(3)} out=${maxOut.toFixed(3)}); revertendo`,
+        );
+        this.#reverterParaCru(
+          'A redução de ruído não funcionou neste PC e estava deixando você mudo; voltei para o som normal.',
+        ).catch(() => {});
+        return;
+      }
+
+      // Sem veredito ainda. Continua por até ~12s (tempo de a pessoa falar algo).
+      if (performance.now() - inicio > 12000) {
+        limpar();
+        return;
+      }
+      setTimeout(tick, 200);
+    };
+    setTimeout(tick, 300);
+  }
+
+  /** Desliga o RNNoise e volta a produzir o som cru do microfone. */
+  async #reverterParaCru(mensagem) {
+    if (!this.reducaoRuido) return;
+    if (!this.micProducer || this.micProducer.closed) return;
+    this.reducaoRuido = false;
+
+    try {
+      const ruidoAntigo = this.#ruido;
+      const streamAntigo = this.localStream;
+      this.#ruido = null;
+
+      const { stream, track } = await this.#capturarMic(this.micDeviceId);
+      await this.micProducer.replaceTrack({ track });
+      this.localStream = stream;
+      for (const t of stream.getAudioTracks()) t.enabled = !this.state.micMuted;
+
+      await this.#desligarRuido(ruidoAntigo);
+      for (const t of streamAntigo?.getTracks() ?? []) t.stop();
+    } catch (error) {
+      console.error('[room] falha ao reverter para o som cru:', error);
+    }
+
+    if (mensagem) this.emit('warning', mensagem);
+    this.emit('ruidoRevertido');
+    this.emit('localState', { ...this.state });
   }
 
   async #desligarRuido(ruido = this.#ruido) {

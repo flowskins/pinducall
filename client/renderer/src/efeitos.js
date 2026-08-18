@@ -10,9 +10,6 @@
 // CPU do compartilhamento de tela.
 // =============================================================================
 
-const reduzMovimento = () =>
-  !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-
 function ajustarCanvas(canvas) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = window.innerWidth;
@@ -31,7 +28,7 @@ function ajustarCanvas(canvas) {
 // com balanço lateral suave.
 // ---------------------------------------------------------------------------
 export function iniciarNeve(canvas, opts = {}) {
-  if (!canvas || reduzMovimento()) return { destroy() {} };
+  if (!canvas) return { destroy() {} };
   const visivel = opts.visivel || (() => true);
   const quantidade = opts.quantidade || 260;
 
@@ -100,7 +97,7 @@ export function iniciarNeve(canvas, opts = {}) {
 // com um raio irregular.
 // ---------------------------------------------------------------------------
 export function iniciarChuva(canvas, opts = {}) {
-  if (!canvas || reduzMovimento()) return { destroy() {} };
+  if (!canvas) return { destroy() {} };
   const visivel = opts.visivel || (() => true);
   const quantidade = opts.quantidade || 150;
   const angulo = 0.28; // inclinação (dx por unidade de comprimento)

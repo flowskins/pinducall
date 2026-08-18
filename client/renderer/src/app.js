@@ -923,6 +923,14 @@ room.on('chat', (message) => {
 
 room.on('warning', (message) => toast(message, 'warn', 7000));
 
+// A rede de segurança do RNNoise desligou a redução sozinha (estava mudo):
+// reflete isso no toggle e nas preferências.
+room.on('ruidoRevertido', () => {
+  el.inputRuido.checked = false;
+  if (state.settings) state.settings.reducaoRuido = false;
+  window.pinducall.settings.set({ reducaoRuido: false });
+});
+
 room.on('localState', (localState) => {
   el.btnMic.innerHTML = localState.micMuted ? icons.micOff : icons.mic;
   el.btnMic.classList.toggle('icon-btn--on', localState.micMuted);
